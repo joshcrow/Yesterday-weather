@@ -30,6 +30,18 @@ export function formatPressure(hPa: number, units: Units): string {
   return `${Math.round(hPa)} hPa`;
 }
 
+export function precipUnitLabel(units: Units): string {
+  return units === "imperial" ? "in" : "mm";
+}
+
+export function formatPrecip(value: number, units: Units): string {
+  const unit = precipUnitLabel(units);
+  if (!value || value <= 0) return `0 ${unit}`;
+  return units === "imperial"
+    ? `${value.toFixed(2)} ${unit}`
+    : `${value.toFixed(1)} ${unit}`;
+}
+
 const COMPASS = [
   "N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE",
   "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW",

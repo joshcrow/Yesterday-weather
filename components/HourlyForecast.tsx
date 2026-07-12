@@ -14,9 +14,14 @@ export default function HourlyForecast({
 }) {
   return (
     <GlassCard className="mt-4">
-      <div className="flex items-center gap-1.5 px-4 pt-3.5 text-[13px] font-semibold uppercase tracking-wide text-white/70">
-        <RewindGlyph className="h-3.5 w-3.5" />
-        <span>Past 24 Hours</span>
+      <div className="flex items-center justify-between px-4 pt-3.5">
+        <div className="flex items-center gap-1.5 text-[13px] font-semibold uppercase tracking-wide text-white/70">
+          <RewindGlyph className="h-3.5 w-3.5" />
+          <span>Past 24 Hours</span>
+        </div>
+        <span className="text-[11px] font-medium lowercase tracking-normal text-white/45">
+          now → 24h ago
+        </span>
       </div>
       {summary && (
         <p className="px-4 pt-1 text-[13px] leading-snug text-white/85">{summary}</p>

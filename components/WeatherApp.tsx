@@ -1,8 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { Place, Units, WeatherData, HourEntry } from "@/lib/weather";
+import type { Place, Units, WeatherData } from "@/lib/weather";
 import { fetchWeather } from "@/lib/weather";
+import { formatPrecip } from "@/lib/format";
 import { reverseGeocode } from "@/lib/geocode";
 import { themeFor } from "@/lib/theme";
 import SearchBar from "./SearchBar";
@@ -23,7 +24,7 @@ const PLACE_KEY = "yw:place";
 const UNITS_KEY = "yw:units";
 
 export default function WeatherApp() {
-  const [units, setUnits] = useState<Units>("metric");
+  const [units, setUnits] = useState<Units>("imperial");
   const [place, setPlace] = useState<Place | null>(null);
   const [data, setData] = useState<WeatherData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -88,7 +89,7 @@ export default function WeatherApp() {
     if (bootstrapped.current) return;
     bootstrapped.current = true;
 
-    let initialUnits: Units = "metric";
+    let initialUnits: Units = "imperial";
     try {
       const su = localStorage.getItem(UNITS_KEY);
       if (su === "metric" || su === "imperial") initialUnits = su;
@@ -128,7 +129,10 @@ export default function WeatherApp() {
     return { gradient: "from-slate-800 via-slate-900 to-slate-950", dark: true };
   }, [data]);
 
-  const summary = useMemo(() => (data ? hourlySummary(data.hourly) : undefined), [data]);
+  const summary = useMemo(
+    () => (data ? hourlySummary(data.past24Precip, units) : undefined),
+    [data, units]
+  );
 
   return (
     <main
@@ -158,8 +162,13 @@ export default function WeatherApp() {
             <CurrentWeather data={data} />
             <TomorrowCard />
             <HourlyForecast hours={data.hourly} summary={summary} />
-            <DailyForecast days={data.daily} currentTemp={data.currentTemp} />
-            <WeatherDetails headline={data.headline} units={units} />
+            <DailyForecast days={data.daily} currentTemp={data.currentTemp} units={units} />
+            <WeatherDetails
+              headline={data.headline}
+              units={units}
+              precipTotal={data.yesterdayPrecipTotal}
+              precipProb={data.yesterdayPrecipProb}
+            />
 
             {error && (
               <p className="mt-4 text-center text-sm text-amber-200/90">
@@ -167,19 +176,16 @@ export default function WeatherApp() {
               </p>
             )}
 
-            <footer className="mt-8 space-y-1 text-center text-xs text-white/50">
-              <p>Yesterday — because hindsight is 20/20.</p>
-              <p>
-                Data (from the past) by{" "}
-                <a
-                  href="https://open-meteo.com/"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="underline decoration-white/30 underline-offset-2 hover:text-white/70"
-                >
-                  Open-Meteo
-                </a>
-              </p>
+            <footer className="mt-8 text-center text-xs text-white/50">
+              Hindsight is 20/20. Data (from the past) by{" "}
+              <a
+                href="https://open-meteo.com/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline decoration-white/30 underline-offset-2 hover:text-white/70"
+              >
+                Open-Meteo
+              </a>
             </footer>
           </div>
         )}
@@ -188,14 +194,12 @@ export default function WeatherApp() {
   );
 }
 
-/** A deadpan one-liner recapping the past few hours you can't get back. */
-function hourlySummary(hours: HourEntry[]): string {
-  const past = hours.filter((h) => h.kind === "hour");
-  const rained = past.some((h) => (h.precipitationProbability ?? 0) >= 50);
-  if (rained) return "It rained at some point back there. Old news.";
-  const maybe = past.some((h) => (h.precipitationProbability ?? 0) >= 30);
-  if (maybe) return "Might've drizzled. Doesn't matter anymore.";
-  return "Nothing you can do about any of it now.";
+/** An informative recap of precipitation over the last 24 hours. */
+function hourlySummary(past24Precip: number, units: Units): string {
+  if (past24Precip > 0) {
+    return `${formatPrecip(past24Precip, units)} of precipitation over the last 24 hours.`;
+  }
+  return "No precipitation in the last 24 hours.";
 }
 
 /** The punchline: a forecast card that refuses to forecast. */

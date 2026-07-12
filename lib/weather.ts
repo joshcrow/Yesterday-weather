@@ -3,7 +3,8 @@
 // Instead of a forecast, this fetches the RECENT PAST from Open-Meteo (free, no
 // API key) using its `past_days` parameter, and presents it as if it were a
 // normal weather app: a "current conditions" hero that's actually *yesterday*,
-// an hourly strip that runs backward into the past, and a "last 10 days" list.
+// an hourly strip that runs backward into the past, and a "last 10 days" list
+// whose rows expand into a full day breakdown.
 //
 // Open-Meteo docs: https://open-meteo.com/en/docs
 
@@ -44,6 +45,18 @@ export interface HourEntry {
   icon?: IconKind;
   isDay?: boolean;
   precipitationProbability?: number;
+  precipitation?: number; // amount this hour (mm or in)
+}
+
+/** One hour within a specific day (used by the expandable day view). */
+export interface DayHour {
+  time: string;
+  label: string; // "2PM"
+  temperature: number;
+  icon: IconKind;
+  weatherCode: number;
+  isDay: boolean;
+  precipitationProbability: number;
 }
 
 export interface DayEntry {
@@ -53,8 +66,17 @@ export interface DayEntry {
   icon: IconKind;
   tempMax: number;
   tempMin: number;
-  precipitationProbability: number;
+  apparentMax: number;
+  apparentMin: number;
+  precipitationProbability: number; // max % that day
+  precipitationSum: number; // total that day (mm or in)
   uvIndexMax: number;
+  windMax: number;
+  windGustsMax: number;
+  windDirDominant: number;
+  sunrise: string;
+  sunset: string;
+  hours: DayHour[]; // that calendar day's hours (today is capped at "now")
 }
 
 /** The headline snapshot — yesterday, at this same hour. */
@@ -73,7 +95,6 @@ export interface Headline {
   windDirection: number;
   windGusts: number;
   pressure: number;
-  precipitation: number;
   cloudCover: number;
   visibility: number; // meters
   uvIndex: number;
@@ -87,6 +108,9 @@ export interface WeatherData {
   headline: Headline;
   yesterdayHigh: number;
   yesterdayLow: number;
+  yesterdayPrecipTotal: number;
+  yesterdayPrecipProb: number;
+  past24Precip: number; // total precipitation across the visible hourly strip
   currentTemp: number; // today, right now — used only for the "Today" bar marker
   hourly: HourEntry[]; // past 24 hours, most-recent first
   daily: DayEntry[]; // today + previous days, most-recent first
@@ -208,9 +232,8 @@ function unitParams(units: Units): string {
 
 export async function fetchWeather(
   place: Place,
-  units: Units = "metric"
+  units: Units = "imperial"
 ): Promise<WeatherData> {
-  // We still read `current` to locate "now" and to place the Today marker.
   const current = ["temperature_2m", "weather_code", "is_day"].join(",");
 
   const hourly = [
@@ -218,6 +241,7 @@ export async function fetchWeather(
     "weather_code",
     "is_day",
     "precipitation_probability",
+    "precipitation",
     "relative_humidity_2m",
     "apparent_temperature",
     "wind_speed_10m",
@@ -225,7 +249,6 @@ export async function fetchWeather(
     "wind_gusts_10m",
     "pressure_msl",
     "cloud_cover",
-    "precipitation",
     "visibility",
     "uv_index",
   ].join(",");
@@ -234,10 +257,16 @@ export async function fetchWeather(
     "weather_code",
     "temperature_2m_max",
     "temperature_2m_min",
+    "apparent_temperature_max",
+    "apparent_temperature_min",
     "sunrise",
     "sunset",
     "uv_index_max",
+    "precipitation_sum",
     "precipitation_probability_max",
+    "wind_speed_10m_max",
+    "wind_gusts_10m_max",
+    "wind_direction_10m_dominant",
   ].join(",");
 
   const url =
@@ -291,7 +320,6 @@ function normalize(raw: any, place: Place, units: Units): WeatherData {
     windDirection: h.wind_direction_10m[yIdx],
     windGusts: Math.round(h.wind_gusts_10m[yIdx]),
     pressure: Math.round(h.pressure_msl[yIdx]),
-    precipitation: h.precipitation?.[yIdx] ?? 0,
     cloudCover: Math.round(h.cloud_cover[yIdx]),
     visibility: h.visibility?.[yIdx] ?? 0,
     uvIndex: Math.round(h.uv_index?.[yIdx] ?? 0),
@@ -302,9 +330,11 @@ function normalize(raw: any, place: Place, units: Units): WeatherData {
   // Hourly strip: the past 24 hours, most-recent first (so it reads backward).
   const stop = Math.max(nowIdx - HOURS_BACK, 0);
   const hourEntries: HourEntry[] = [];
+  let past24Precip = 0;
   for (let i = nowIdx; i >= stop; i--) {
     const isDay = h.is_day[i] === 1;
     const code = h.weather_code[i];
+    past24Precip += h.precipitation?.[i] ?? 0;
     hourEntries.push({
       kind: "hour",
       time: hTimes[i],
@@ -314,6 +344,7 @@ function normalize(raw: any, place: Place, units: Units): WeatherData {
       icon: describeWeather(code, isDay).icon,
       isDay,
       precipitationProbability: h.precipitation_probability?.[i] ?? 0,
+      precipitation: h.precipitation?.[i] ?? 0,
     });
   }
 
@@ -333,21 +364,57 @@ function normalize(raw: any, place: Place, units: Units): WeatherData {
     a.time > b.time ? -1 : a.time < b.time ? 1 : 0
   );
 
+  // Group hourly indices by calendar date for the expandable day views.
+  const byDate: Record<string, number[]> = {};
+  for (let i = 0; i < hTimes.length; i++) {
+    const day = hTimes[i].slice(0, 10);
+    (byDate[day] ||= []).push(i);
+  }
+
   // Daily list: today + previous days, most-recent first.
   const daily: DayEntry[] = [];
   for (let i = dTimes.length - 1; i >= 0; i--) {
+    const dateStr = dTimes[i];
     const code = d.weather_code[i];
     const label =
-      i === todayD ? "Today" : i === todayD - 1 ? "Yesterday" : weekdayLabel(dTimes[i]);
+      i === todayD ? "Today" : i === todayD - 1 ? "Yesterday" : weekdayLabel(dateStr);
+
+    // Today is only "real" up to the current hour (no peeking at the future).
+    const idxs = (byDate[dateStr] || []).filter((k) => (i === todayD ? k <= nowIdx : true));
+    const hours: DayHour[] = idxs.map((k) => {
+      const isDay = h.is_day[k] === 1;
+      const c = h.weather_code[k];
+      return {
+        time: hTimes[k],
+        label: hTimes[k].slice(11, 13) === raw.current.time.slice(11, 13) && i === todayD
+          ? "Now"
+          : formatHourLabel(hTimes[k]),
+        temperature: Math.round(h.temperature_2m[k]),
+        icon: describeWeather(c, isDay).icon,
+        weatherCode: c,
+        isDay,
+        precipitationProbability: h.precipitation_probability?.[k] ?? 0,
+      };
+    });
+
     daily.push({
-      date: dTimes[i],
+      date: dateStr,
       dayLabel: label,
       weatherCode: code,
       icon: describeWeather(code, true).icon,
       tempMax: Math.round(d.temperature_2m_max[i]),
       tempMin: Math.round(d.temperature_2m_min[i]),
+      apparentMax: Math.round(d.apparent_temperature_max?.[i] ?? d.temperature_2m_max[i]),
+      apparentMin: Math.round(d.apparent_temperature_min?.[i] ?? d.temperature_2m_min[i]),
       precipitationProbability: d.precipitation_probability_max?.[i] ?? 0,
+      precipitationSum: d.precipitation_sum?.[i] ?? 0,
       uvIndexMax: Math.round(d.uv_index_max?.[i] ?? 0),
+      windMax: Math.round(d.wind_speed_10m_max?.[i] ?? 0),
+      windGustsMax: Math.round(d.wind_gusts_10m_max?.[i] ?? 0),
+      windDirDominant: d.wind_direction_10m_dominant?.[i] ?? 0,
+      sunrise: d.sunrise[i],
+      sunset: d.sunset[i],
+      hours,
     });
   }
 
@@ -357,6 +424,9 @@ function normalize(raw: any, place: Place, units: Units): WeatherData {
     headline,
     yesterdayHigh: Math.round(d.temperature_2m_max[yesterdayD]),
     yesterdayLow: Math.round(d.temperature_2m_min[yesterdayD]),
+    yesterdayPrecipTotal: d.precipitation_sum?.[yesterdayD] ?? 0,
+    yesterdayPrecipProb: d.precipitation_probability_max?.[yesterdayD] ?? 0,
+    past24Precip,
     currentTemp: Math.round(raw.current.temperature_2m),
     hourly,
     daily,
