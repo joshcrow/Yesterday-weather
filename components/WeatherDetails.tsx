@@ -1,6 +1,6 @@
 "use client";
 
-import type { CurrentConditions, Units } from "@/lib/weather";
+import type { Headline, Units } from "@/lib/weather";
 import { formatClock } from "@/lib/weather";
 import {
   formatPressure,
@@ -8,74 +8,71 @@ import {
   speedUnitLabel,
   uvLabel,
   windDirectionLabel,
-  humidityNote,
 } from "@/lib/format";
 import GlassCard from "./GlassCard";
 
 export default function WeatherDetails({
-  current,
+  headline,
   units,
 }: {
-  current: CurrentConditions;
+  headline: Headline;
   units: Units;
 }) {
   return (
     <div className="mt-4 grid grid-cols-2 gap-3">
-      <DetailCard label="Feels Like">
-        <BigValue>{current.apparentTemperature}°</BigValue>
+      <DetailCard label="Felt Like">
+        <BigValue>{headline.apparentTemperature}°</BigValue>
         <Note>
-          {current.apparentTemperature > current.temperature
-            ? "Humidity is making it feel warmer."
-            : current.apparentTemperature < current.temperature
-            ? "Wind is making it feel cooler."
-            : "Similar to the actual temperature."}
+          {headline.apparentTemperature > headline.temperature
+            ? "Muggier than it looked. Was."
+            : headline.apparentTemperature < headline.temperature
+            ? "The wind made it worse. It's fine now."
+            : "About what it looked like."}
         </Note>
       </DetailCard>
 
       <DetailCard label="UV Index">
-        <BigValue>{current.uvIndex}</BigValue>
-        <Note>{uvLabel(current.uvIndex)}</Note>
+        <BigValue>{headline.uvIndex}</BigValue>
+        <Note>{uvLabel(headline.uvIndex)} — too late for sunscreen.</Note>
       </DetailCard>
 
       <DetailCard label="Wind">
         <BigValue>
-          {current.windSpeed}
+          {headline.windSpeed}
           <Unit> {speedUnitLabel(units)}</Unit>
         </BigValue>
         <Note>
-          From {windDirectionLabel(current.windDirection)} · Gusts {current.windGusts}
+          Blew from {windDirectionLabel(headline.windDirection)} · gusts {headline.windGusts}
         </Note>
       </DetailCard>
 
       <DetailCard label="Humidity">
-        <BigValue>{current.humidity}%</BigValue>
-        <Note>{humidityNote(current.humidity)}</Note>
+        <BigValue>{headline.humidity}%</BigValue>
+        <Note>That's how sticky it was.</Note>
       </DetailCard>
 
       <DetailCard label="Sunrise">
-        <BigValue>{formatClock(current.sunrise)}</BigValue>
-        <Note>Sunset: {formatClock(current.sunset)}</Note>
+        <BigValue>{formatClock(headline.sunrise)}</BigValue>
+        <Note>The sun already did this.</Note>
       </DetailCard>
 
       <DetailCard label="Sunset">
-        <BigValue>{formatClock(current.sunset)}</BigValue>
-        <Note>Sunrise: {formatClock(current.sunrise)}</Note>
+        <BigValue>{formatClock(headline.sunset)}</BigValue>
+        <Note>And then it did this. Gone.</Note>
       </DetailCard>
 
       <DetailCard label="Visibility">
-        <BigValue>{formatVisibility(current.visibility, units)}</BigValue>
+        <BigValue>{formatVisibility(headline.visibility, units)}</BigValue>
         <Note>
-          {current.visibility >= 10000
-            ? "Perfectly clear view."
-            : current.visibility >= 4000
-            ? "Reasonably clear."
-            : "Reduced visibility."}
+          {headline.visibility >= 10000
+            ? "You could see for miles. Yesterday."
+            : "Bit murky, as it turned out."}
         </Note>
       </DetailCard>
 
       <DetailCard label="Pressure">
-        <BigValue className="text-2xl">{formatPressure(current.pressure, units)}</BigValue>
-        <Note>Cloud cover {current.cloudCover}%</Note>
+        <BigValue className="text-2xl">{formatPressure(headline.pressure, units)}</BigValue>
+        <Note>Cloud cover was {headline.cloudCover}%.</Note>
       </DetailCard>
     </div>
   );
@@ -93,9 +90,7 @@ function DetailCard({
       <h3 className="text-[12px] font-semibold uppercase tracking-wide text-white/60">
         {label}
       </h3>
-      <div className="mt-1.5 flex min-h-[64px] flex-col justify-between">
-        {children}
-      </div>
+      <div className="mt-1.5 flex min-h-[64px] flex-col justify-between">{children}</div>
     </GlassCard>
   );
 }

@@ -2,9 +2,9 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Weather",
+  title: "Yesterday — Weather in Reverse",
   description:
-    "A clean, Apple Weather-style forecast — current conditions, hourly, and a 10-day outlook.",
+    "The weather app that shows you yesterday. Current conditions from 24 hours ago, an hourly strip that runs into the past, and a 10-day hindsight — completely useless, beautifully presented.",
 };
 
 export const viewport: Viewport = {

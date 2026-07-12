@@ -14,21 +14,27 @@ export default function HourlyForecast({
 }) {
   return (
     <GlassCard className="mt-4">
+      <div className="flex items-center gap-1.5 px-4 pt-3.5 text-[13px] font-semibold uppercase tracking-wide text-white/70">
+        <RewindGlyph className="h-3.5 w-3.5" />
+        <span>Past 24 Hours</span>
+      </div>
       {summary && (
-        <p className="px-4 pt-3.5 text-[13px] leading-snug text-white/85">
-          {summary}
-        </p>
+        <p className="px-4 pt-1 text-[13px] leading-snug text-white/85">{summary}</p>
       )}
-      <div
-        className={`no-scrollbar flex gap-1 overflow-x-auto px-2 pb-4 ${
-          summary ? "pt-3" : "pt-4"
-        }`}
-      >
+      <div className="no-scrollbar mt-1 flex gap-1 overflow-x-auto px-2 pb-4 pt-2">
         {hours.map((h, i) => (
           <HourCell key={`${h.time}-${h.kind}-${i}`} hour={h} />
         ))}
       </div>
     </GlassCard>
+  );
+}
+
+function RewindGlyph({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" className={className} aria-hidden="true">
+      <path d="M11 6 3 12l8 6V6zm10 0-8 6 8 6V6z" />
+    </svg>
   );
 }
 

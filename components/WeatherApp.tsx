@@ -124,7 +124,7 @@ export default function WeatherApp() {
   }, [units, place, load]);
 
   const theme = useMemo(() => {
-    if (data) return themeFor(data.current.icon, data.current.isDay);
+    if (data) return themeFor(data.headline.icon, data.headline.isDay);
     return { gradient: "from-slate-800 via-slate-900 to-slate-950", dark: true };
   }, [data]);
 
@@ -143,6 +143,10 @@ export default function WeatherApp() {
           busy={loading}
         />
 
+        <p className="mt-3 text-center text-[13px] font-medium text-white/70">
+          The weather report that&apos;s always a day too late.
+        </p>
+
         {loading && !data && <LoadingScreen />}
 
         {error && !data && (
@@ -152,26 +156,30 @@ export default function WeatherApp() {
         {data && (
           <div className="animate-slide-up">
             <CurrentWeather data={data} />
+            <TomorrowCard />
             <HourlyForecast hours={data.hourly} summary={summary} />
-            <DailyForecast days={data.daily} currentTemp={data.current.temperature} />
-            <WeatherDetails current={data.current} units={units} />
+            <DailyForecast days={data.daily} currentTemp={data.currentTemp} />
+            <WeatherDetails headline={data.headline} units={units} />
 
             {error && (
               <p className="mt-4 text-center text-sm text-amber-200/90">
-                Couldn&apos;t refresh: {error}
+                Couldn&apos;t refresh yesterday: {error}
               </p>
             )}
 
-            <footer className="mt-8 text-center text-xs text-white/50">
-              Weather data by{" "}
-              <a
-                href="https://open-meteo.com/"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="underline decoration-white/30 underline-offset-2 hover:text-white/70"
-              >
-                Open-Meteo
-              </a>
+            <footer className="mt-8 space-y-1 text-center text-xs text-white/50">
+              <p>Yesterday — because hindsight is 20/20.</p>
+              <p>
+                Data (from the past) by{" "}
+                <a
+                  href="https://open-meteo.com/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="underline decoration-white/30 underline-offset-2 hover:text-white/70"
+                >
+                  Open-Meteo
+                </a>
+              </p>
             </footer>
           </div>
         )}
@@ -180,24 +188,31 @@ export default function WeatherApp() {
   );
 }
 
-/** A short, human summary for the hourly card, e.g. rain timing. */
-function hourlySummary(hours: HourEntry[]): string | undefined {
-  const upcoming = hours.filter((h) => h.kind === "hour").slice(0, 13);
-  if (upcoming.length === 0) return undefined;
+/** A deadpan one-liner recapping the past few hours you can't get back. */
+function hourlySummary(hours: HourEntry[]): string {
+  const past = hours.filter((h) => h.kind === "hour");
+  const rained = past.some((h) => (h.precipitationProbability ?? 0) >= 50);
+  if (rained) return "It rained at some point back there. Old news.";
+  const maybe = past.some((h) => (h.precipitationProbability ?? 0) >= 30);
+  if (maybe) return "Might've drizzled. Doesn't matter anymore.";
+  return "Nothing you can do about any of it now.";
+}
 
-  const rainy = upcoming.find((h) => (h.precipitationProbability ?? 0) >= 50);
-  if (rainy) {
-    return rainy.label === "Now"
-      ? "Precipitation likely right now."
-      : `Precipitation likely around ${rainy.label}.`;
-  }
-
-  const chance = upcoming.find((h) => (h.precipitationProbability ?? 0) >= 30);
-  if (chance) {
-    return `A chance of precipitation around ${chance.label}.`;
-  }
-
-  return "Conditions are clear for the next several hours.";
+/** The punchline: a forecast card that refuses to forecast. */
+function TomorrowCard() {
+  return (
+    <div className="mt-4 overflow-hidden rounded-3xl bg-white/10 p-4 ring-1 ring-white/15 backdrop-blur-xl">
+      <div className="flex items-center gap-1.5 text-[13px] font-semibold uppercase tracking-wide text-white/60">
+        <span aria-hidden="true">🔮</span>
+        Tomorrow&apos;s Forecast
+      </div>
+      <p className="mt-2 text-[22px] font-medium text-white">Unavailable.</p>
+      <p className="mt-1 text-[13px] leading-snug text-white/70">
+        We only report weather that has already happened. For the future, try
+        literally any other weather app.
+      </p>
+    </div>
+  );
 }
 
 function LoadingScreen() {
@@ -207,7 +222,7 @@ function LoadingScreen() {
         <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="3" fill="none" opacity="0.25" />
         <path d="M21 12a9 9 0 0 0-9-9" stroke="currentColor" strokeWidth="3" fill="none" strokeLinecap="round" />
       </svg>
-      <p className="text-sm">Loading the forecast…</p>
+      <p className="text-sm">Rewinding the weather…</p>
     </div>
   );
 }

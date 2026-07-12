@@ -18,8 +18,9 @@ export default function DailyForecast({
 
   return (
     <GlassCard className="mt-4">
-      <h2 className="px-4 pt-3.5 pb-1 text-[13px] font-semibold uppercase tracking-wide text-white/70">
-        10-Day Forecast
+      <h2 className="flex items-center gap-1.5 px-4 pt-3.5 pb-1 text-[13px] font-semibold uppercase tracking-wide text-white/70">
+        <span aria-hidden="true">🕰️</span>
+        10-Day Hindsight
       </h2>
       <ul className="px-2 pb-2">
         {days.map((day, i) => {
