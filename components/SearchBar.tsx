@@ -74,17 +74,17 @@ export default function SearchBar({
   return (
     <div className="relative z-20 flex items-center gap-2">
       <div ref={boxRef} className="relative flex-1">
-        <div className="flex items-center gap-2 rounded-full bg-white/15 px-4 py-2.5 backdrop-blur-md ring-1 ring-white/20">
-          <SearchGlyph className="h-4 w-4 shrink-0 text-white/70" />
+        <div className="flex items-center gap-2 rounded-full bg-black/25 px-4 py-2.5 backdrop-blur-md ring-1 ring-white/20">
+          <SearchGlyph className="h-4 w-4 shrink-0 text-white/85" />
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onFocus={() => results.length && setOpen(true)}
             placeholder="Search for a city"
-            className="w-full bg-transparent text-[15px] text-white placeholder-white/60 outline-none"
+            className="w-full bg-transparent text-[15px] text-white placeholder-white/75 outline-none"
             aria-label="Search for a city"
           />
-          {searching && <Spinner className="h-4 w-4 shrink-0 text-white/70" />}
+          {searching && <Spinner className="h-4 w-4 shrink-0 text-white/85" />}
         </div>
 
         {open && results.length > 0 && (
@@ -96,7 +96,7 @@ export default function SearchBar({
                   className="flex w-full items-center justify-between px-4 py-3 text-left text-white transition-colors hover:bg-white/10"
                 >
                   <span className="text-[15px] font-medium">{p.name}</span>
-                  <span className="ml-3 truncate text-xs text-white/60">
+                  <span className="ml-3 truncate text-xs text-white/70">
                     {[p.admin1, p.country].filter(Boolean).join(", ")}
                   </span>
                 </button>
@@ -111,7 +111,7 @@ export default function SearchBar({
         disabled={busy}
         title="Use my location"
         aria-label="Use my location"
-        className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-white/15 backdrop-blur-md ring-1 ring-white/20 transition-colors hover:bg-white/25 disabled:opacity-50"
+        className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-black/25 backdrop-blur-md ring-1 ring-white/20 transition-colors hover:bg-black/40 disabled:opacity-50"
       >
         <LocationGlyph className="h-[18px] w-[18px] text-white" />
       </button>
@@ -120,7 +120,7 @@ export default function SearchBar({
         onClick={onToggleUnits}
         title="Toggle temperature units"
         aria-label="Toggle temperature units"
-        className="grid h-10 shrink-0 place-items-center rounded-full bg-white/15 px-3 text-sm font-semibold text-white backdrop-blur-md ring-1 ring-white/20 transition-colors hover:bg-white/25"
+        className="grid h-10 shrink-0 place-items-center rounded-full bg-black/25 px-3 text-sm font-semibold text-white backdrop-blur-md ring-1 ring-white/20 transition-colors hover:bg-black/40"
       >
         {units === "imperial" ? "°F" : "°C"}
       </button>

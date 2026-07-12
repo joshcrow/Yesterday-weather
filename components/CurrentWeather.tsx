@@ -21,7 +21,7 @@ export default function CurrentWeather({ data }: { data: WeatherData }) {
           Yesterday
         </span>
       </div>
-      <p className="mt-1 text-[13px] text-white/70">
+      <p className="mt-1 text-[13px] text-white/85">
         {formatLongDate(headline.date)} · at {headline.atHourLabel}
       </p>
 
@@ -44,7 +44,7 @@ export default function CurrentWeather({ data }: { data: WeatherData }) {
         H:{yesterdayHigh}°&nbsp;&nbsp;L:{yesterdayLow}°
       </p>
 
-      <p className="mt-2 max-w-[16rem] text-sm italic text-white/75">
+      <p className="mt-2 max-w-[16rem] text-sm italic text-white/90">
         “{quip(headline.icon)}”
       </p>
     </section>

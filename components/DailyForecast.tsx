@@ -29,11 +29,11 @@ export default function DailyForecast({
 
   return (
     <GlassCard className="mt-4">
-      <h2 className="flex items-center gap-1.5 px-4 pt-3.5 pb-1 text-[13px] font-semibold uppercase tracking-wide text-white/70">
+      <h2 className="flex items-center gap-1.5 px-4 pt-3.5 pb-1 text-[13px] font-semibold uppercase tracking-wide text-white/85">
         <span aria-hidden="true">🕰️</span>
         10-Day Hindsight
       </h2>
-      <p className="px-4 pb-1 text-[12px] text-white/55">Tap a day for the full breakdown.</p>
+      <p className="px-4 pb-1 text-[12px] text-white/70">Tap a day for the full breakdown.</p>
       <ul className="px-2 pb-2">
         {days.map((day, i) => {
           const open = openIdx === i;
@@ -70,7 +70,7 @@ export default function DailyForecast({
                   )}
                 </div>
 
-                <span className="w-7 shrink-0 text-right text-[15px] font-medium text-white/70">
+                <span className="w-7 shrink-0 text-right text-[15px] font-medium text-white/80">
                   {day.tempMin}°
                 </span>
 
@@ -105,7 +105,7 @@ export default function DailyForecast({
 
 function DayDetail({ day, units }: { day: DayEntry; units: Units }) {
   return (
-    <div className="animate-slide-up rounded-2xl bg-black/15 px-3 pb-3 pt-2.5 mx-1 mb-2">
+    <div className="animate-slide-up rounded-2xl bg-black/20 px-3 pb-3 pt-2.5 mx-1 mb-2">
       <div className="grid grid-cols-3 gap-2">
         <Stat
           label="Precipitation"
@@ -138,7 +138,7 @@ function DayDetail({ day, units }: { day: DayEntry; units: Units }) {
             >
               <span
                 className={`text-[12px] font-semibold ${
-                  hr.label === "Now" ? "text-white" : "text-white/80"
+                  hr.label === "Now" ? "text-white" : "text-white/85"
                 }`}
               >
                 {hr.label}
@@ -169,12 +169,12 @@ function Stat({
 }) {
   return (
     <div className="rounded-xl bg-white/10 px-2.5 py-2">
-      <p className="text-[10px] font-semibold uppercase tracking-wide text-white/55">{label}</p>
+      <p className="text-[10px] font-semibold uppercase tracking-wide text-white/70">{label}</p>
       <p className="mt-0.5 text-[17px] font-semibold leading-tight text-white">
         {value}
-        {unit && <span className="text-[12px] font-normal text-white/70">{unit}</span>}
+        {unit && <span className="text-[12px] font-normal text-white/75">{unit}</span>}
       </p>
-      {sub && <p className="text-[11px] leading-snug text-white/60">{sub}</p>}
+      {sub && <p className="text-[11px] leading-snug text-white/75">{sub}</p>}
     </div>
   );
 }
@@ -183,7 +183,7 @@ function Chevron({ open }: { open: boolean }) {
   return (
     <svg
       viewBox="0 0 24 24"
-      className={`h-4 w-4 shrink-0 text-white/50 transition-transform duration-200 ${
+      className={`h-4 w-4 shrink-0 text-white/70 transition-transform duration-200 ${
         open ? "rotate-180" : ""
       }`}
       fill="none"

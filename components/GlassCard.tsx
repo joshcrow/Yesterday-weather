@@ -10,7 +10,7 @@ export default function GlassCard({
 }) {
   return (
     <div
-      className={`overflow-hidden rounded-3xl bg-white/15 backdrop-blur-xl ring-1 ring-white/20 shadow-lg ${className}`}
+      className={`overflow-hidden rounded-3xl bg-black/25 backdrop-blur-xl ring-1 ring-white/15 shadow-lg ${className}`}
     >
       {children}
     </div>

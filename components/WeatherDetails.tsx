@@ -86,7 +86,7 @@ export default function WeatherDetails({
 function DetailCard({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <GlassCard className="p-3.5">
-      <h3 className="text-[12px] font-semibold uppercase tracking-wide text-white/60">{label}</h3>
+      <h3 className="text-[12px] font-semibold uppercase tracking-wide text-white/80">{label}</h3>
       <div className="mt-1.5 flex min-h-[62px] flex-col justify-between">{children}</div>
     </GlassCard>
   );
@@ -115,7 +115,7 @@ function Note({
   children: React.ReactNode;
   className?: string;
 }) {
-  return <p className={`mt-1 text-[12px] leading-snug text-white/70 ${className}`}>{children}</p>;
+  return <p className={`mt-1 text-[12px] leading-snug text-white/85 ${className}`}>{children}</p>;
 }
 
 function ArrowUp() {

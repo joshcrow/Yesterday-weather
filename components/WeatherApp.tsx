@@ -136,9 +136,12 @@ export default function WeatherApp() {
 
   return (
     <main
-      className={`bg-transition min-h-screen w-full bg-gradient-to-b ${theme.gradient}`}
+      className={`bg-transition relative min-h-screen w-full bg-gradient-to-b ${theme.gradient}`}
     >
-      <div className="mx-auto flex min-h-screen max-w-md flex-col px-4 pb-10 pt-5">
+      {/* Scrim: deepens the top and bottom edges so chrome/text stays readable
+          on the brighter daytime gradients without muddying the vivid middle. */}
+      <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/25 via-transparent to-black/35" />
+      <div className="relative mx-auto flex min-h-screen max-w-md flex-col px-4 pb-10 pt-5">
         <SearchBar
           onSelect={(p) => selectPlace(p, units)}
           onUseLocation={() => geolocate(units)}
@@ -147,7 +150,7 @@ export default function WeatherApp() {
           busy={loading}
         />
 
-        <p className="mt-3 text-center text-[13px] font-medium text-white/70">
+        <p className="mt-3 text-center text-[13px] font-medium text-white/90">
           The weather report that&apos;s always a day too late.
         </p>
 
@@ -176,7 +179,7 @@ export default function WeatherApp() {
               </p>
             )}
 
-            <footer className="mt-8 text-center text-xs text-white/50">
+            <footer className="mt-8 text-center text-xs text-white/70">
               Hindsight is 20/20. Data (from the past) by{" "}
               <a
                 href="https://open-meteo.com/"
@@ -205,13 +208,13 @@ function hourlySummary(past24Precip: number, units: Units): string {
 /** The punchline: a forecast card that refuses to forecast. */
 function TomorrowCard() {
   return (
-    <div className="mt-4 overflow-hidden rounded-3xl bg-white/10 p-4 ring-1 ring-white/15 backdrop-blur-xl">
-      <div className="flex items-center gap-1.5 text-[13px] font-semibold uppercase tracking-wide text-white/60">
+    <div className="mt-4 overflow-hidden rounded-3xl bg-black/25 p-4 ring-1 ring-white/15 backdrop-blur-xl">
+      <div className="flex items-center gap-1.5 text-[13px] font-semibold uppercase tracking-wide text-white/80">
         <span aria-hidden="true">🔮</span>
         Tomorrow&apos;s Forecast
       </div>
       <p className="mt-2 text-[22px] font-medium text-white">Unavailable.</p>
-      <p className="mt-1 text-[13px] leading-snug text-white/70">
+      <p className="mt-1 text-[13px] leading-snug text-white/85">
         We only report weather that has already happened. For the future, try
         literally any other weather app.
       </p>
