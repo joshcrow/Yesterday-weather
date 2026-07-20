@@ -28,7 +28,7 @@ export default function NumbersGrid({
       <div className="px-4 pt-4 sm:px-5">
         <SectionLabel>Yesterday, by the numbers</SectionLabel>
       </div>
-      <dl className="mt-3 grid grid-cols-2 gap-px border-t border-ink-line bg-ink-line sm:grid-cols-4 lg:grid-cols-2">
+      <dl className="mt-3 grid grid-cols-2 gap-px border-t border-ink-line bg-ink-line sm:grid-cols-4">
         <Cell
           label="Precipitation"
           value={formatPrecip(precipTotal, units)}

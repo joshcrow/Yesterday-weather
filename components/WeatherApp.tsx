@@ -7,6 +7,7 @@ import { reverseGeocode } from "@/lib/geocode";
 import Header from "./Header";
 import YesterdayHero from "./YesterdayHero";
 import NowStrip from "./NowStrip";
+import WaterLedger from "./WaterLedger";
 import TimelineChart from "./TimelineChart";
 import Ledger from "./Ledger";
 import NumbersGrid from "./NumbersGrid";
@@ -150,14 +151,7 @@ export default function WeatherApp() {
               <div className="flex flex-col gap-4 lg:col-span-5">
                 <YesterdayHero data={data} />
                 <NowStrip now={data.now} units={units} />
-                <div className="hidden lg:block">
-                  <NumbersGrid
-                    headline={data.headline}
-                    units={units}
-                    precipTotal={data.yesterdayPrecipTotal}
-                    precipProb={data.yesterdayPrecipProb}
-                  />
-                </div>
+                <WaterLedger water={data.water} units={units} />
               </div>
 
               <div className="flex flex-col gap-4 lg:col-span-7">
@@ -175,15 +169,16 @@ export default function WeatherApp() {
                   currentTemp={data.now.temperature}
                   units={units}
                 />
-                <div className="lg:hidden">
-                  <NumbersGrid
-                    headline={data.headline}
-                    units={units}
-                    precipTotal={data.yesterdayPrecipTotal}
-                    precipProb={data.yesterdayPrecipProb}
-                  />
-                </div>
               </div>
+            </div>
+
+            <div className="mt-4">
+              <NumbersGrid
+                headline={data.headline}
+                units={units}
+                precipTotal={data.yesterdayPrecipTotal}
+                precipProb={data.yesterdayPrecipProb}
+              />
             </div>
 
             {error && (

@@ -37,6 +37,12 @@ dark surface (OKLab ΔE ≥ 8, ≥3:1).
   divider, with night shading, a precipitation-chance strip below (its own
   scale — no dual axes), pinned axis labels, and a crosshair tooltip that works
   by mouse, touch, and keyboard (arrow keys).
+- **The water ledger** — the panel that answers the only hindsight question
+  that matters: *did the water arrive, or did the sun take it back?* Rain in
+  (credit) vs. FAO-56 evapotranspiration out (debit), a diverging 9-day figure
+  (last 7 days + what's expected today/tomorrow), 7-day in/out/net totals, and
+  a computed verdict — **Soaked / Holding / Rain soon / Steady / Drying /
+  Parched** — in plain language ("If it depends on you, it's on you.").
 - **The ledger** — a week of **Hindsight** ("what actually happened") beside a
   week of **Foresight**, every row expandable into a full day: precipitation
   total, wind, UV, feels-like, sun times, and that day's hourly breakdown,

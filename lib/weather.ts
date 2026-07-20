@@ -108,6 +108,42 @@ export interface NightSpan {
   end: string;
 }
 
+// ---------------------------------------------------------------------------
+// The water ledger — rain in, evaporation out, and whether the sky's got the
+// next round covered. ET₀ (FAO-56 reference evapotranspiration) folds heat,
+// sun, wind, and humidity into one "water drawn back out" number.
+// ---------------------------------------------------------------------------
+
+export type WaterState =
+  | "soaked" // real rain in the last 24h
+  | "holding" // recent rain still outweighs what evaporated
+  | "rain-soon" // dry, but meaningful rain expected by tomorrow
+  | "steady" // little in, little out
+  | "drying" // deficit building
+  | "parched"; // long dry stretch, big deficit
+
+export interface WaterDay {
+  date: string;
+  label: string; // "M", "T", ... then "Tdy", "Tmw"
+  phase: Phase;
+  rain: number; // observed for past; expected sum for today/tomorrow
+  et0: number; // drawn out (0 for today/tomorrow — day isn't done)
+}
+
+export interface WaterLedger {
+  days: WaterDay[]; // last 7 days + today + tomorrow
+  rain24: number; // rolling last 24h (hourly)
+  rain3: number; // last 3 calendar days
+  rain7: number;
+  et3: number;
+  et7: number;
+  daysSinceRain: number | null; // 1 = yesterday; null = none in 10 days
+  upcomingRain: number; // expected today + tomorrow
+  upcomingMaxProb: number;
+  nextWetLabel: string | null; // first foresight day with a real chance
+  state: WaterState;
+}
+
 export interface WeatherData {
   place: Place;
   units: Units;
@@ -124,6 +160,7 @@ export interface WeatherData {
   hindsight: DayEntry[]; // yesterday .. -7, most recent first
   foresight: DayEntry[]; // today .. +7, chronological
   tempDomain: { min: number; max: number }; // across every ledger day
+  water: WaterLedger;
   fetchedAt: string;
 }
 
@@ -305,6 +342,7 @@ export async function fetchWeather(
     "wind_speed_10m_max",
     "wind_gusts_10m_max",
     "wind_direction_10m_dominant",
+    "et0_fao_evapotranspiration",
   ].join(",");
 
   const url =
@@ -478,6 +516,8 @@ function normalize(raw: any, place: Place, units: Units): WeatherData {
     max: Math.max(...everyDay.map((x) => x.tempMax)),
   };
 
+  const water = buildWaterLedger(d, dTimes, todayD, units, past24Precip, foresight);
+
   return {
     place,
     units,
@@ -494,6 +534,114 @@ function normalize(raw: any, place: Place, units: Units): WeatherData {
     hindsight,
     foresight,
     tempDomain,
+    water,
     fetchedAt: raw.current.time,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Water ledger computation. Threshold logic runs in millimeters regardless of
+// display units, so the verdict doesn't shift when the user toggles °F/°C.
+// ---------------------------------------------------------------------------
+
+function buildWaterLedger(
+  d: any,
+  dTimes: string[],
+  todayD: number,
+  units: Units,
+  past24Precip: number,
+  foresight: DayEntry[]
+): WaterLedger {
+  const toMm = (v: number) => (units === "imperial" ? v * 25.4 : v);
+  const rainAt = (i: number): number => d.precipitation_sum?.[i] ?? 0;
+  const et0At = (i: number): number => d.et0_fao_evapotranspiration?.[i] ?? 0;
+
+  // Last 7 days + today + tomorrow.
+  const days: WaterDay[] = [];
+  for (let i = Math.max(todayD - 7, 0); i <= Math.min(todayD + 1, dTimes.length - 1); i++) {
+    const phase: Phase = i < todayD ? "past" : i === todayD ? "today" : "future";
+    const label =
+      i === todayD
+        ? "Tdy"
+        : i === todayD + 1
+        ? "Tmw"
+        : new Date(`${dTimes[i]}T12:00:00`)
+            .toLocaleDateString("en-US", { weekday: "narrow" });
+    days.push({
+      date: dTimes[i],
+      label,
+      phase,
+      rain: rainAt(i),
+      et0: phase === "past" ? et0At(i) : 0,
+    });
+  }
+
+  let rain3 = 0, rain7 = 0, et3 = 0, et7 = 0;
+  for (let k = 1; k <= 7; k++) {
+    const i = todayD - k;
+    if (i < 0) break;
+    rain7 += rainAt(i);
+    et7 += et0At(i);
+    if (k <= 3) {
+      rain3 += rainAt(i);
+      et3 += et0At(i);
+    }
+  }
+
+  // Days since a day with ≥1mm of rain (1 = yesterday).
+  let daysSinceRain: number | null = null;
+  for (let k = 1; k <= 10; k++) {
+    const i = todayD - k;
+    if (i < 0) break;
+    if (toMm(rainAt(i)) >= 1) {
+      daysSinceRain = k;
+      break;
+    }
+  }
+
+  const upcomingRain = rainAt(todayD) + rainAt(todayD + 1);
+  const upcomingMaxProb = Math.max(
+    d.precipitation_probability_max?.[todayD] ?? 0,
+    d.precipitation_probability_max?.[todayD + 1] ?? 0
+  );
+
+  // First foresight day beyond tomorrow with a real chance of rain.
+  let nextWetLabel: string | null = null;
+  for (const day of foresight.slice(2)) {
+    if (toMm(day.precipitationSum) >= 2 || day.precipitationProbability >= 60) {
+      nextWetLabel = day.dayLabel;
+      break;
+    }
+  }
+
+  const rain24mm = toMm(past24Precip);
+  const rain3mm = toMm(rain3);
+  const et3mm = toMm(et3);
+  const et7mm = toMm(et7);
+  const net3mm = rain3mm - et3mm;
+  const net7mm = toMm(rain7) - et7mm;
+  const upcomingMm = toMm(upcomingRain);
+
+  let state: WaterState;
+  if (rain24mm >= 4) state = "soaked";
+  else if (net3mm > 0 || (rain3mm >= 5 && net3mm > -3)) state = "holding";
+  else if ((upcomingMm >= 4 && upcomingMaxProb >= 55) || upcomingMaxProb >= 80)
+    state = "rain-soon";
+  else if (rain3mm < 1 && et3mm < 4 && upcomingMm < 4) state = "steady";
+  else if ((daysSinceRain === null || daysSinceRain >= 5) && net7mm < -15) state = "parched";
+  else state = "drying";
+
+  return {
+    days,
+    rain24: past24Precip,
+    rain3,
+    rain7,
+    et3,
+    et7,
+    daysSinceRain,
+    upcomingRain,
+    upcomingMaxProb,
+    nextWetLabel,
+    state,
   };
 }
