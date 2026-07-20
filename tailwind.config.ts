@@ -6,26 +6,53 @@ const config: Config = {
     "./components/**/*.{js,ts,jsx,tsx,mdx}",
     "./lib/**/*.{js,ts,jsx,tsx,mdx}",
   ],
-  // The background gradient classes are selected at runtime from lib/theme.ts,
-  // so safelist every color stop we use to guarantee they survive purging.
-  safelist: [
-    "bg-gradient-to-b",
-    { pattern: /(from|via|to)-(sky|blue|slate|indigo)-(300|400|500|600|700|800|900|950)/ },
-  ],
   theme: {
     extend: {
+      colors: {
+        // The ledger's ink system — flat, editorial, decidedly not a sky.
+        ink: {
+          DEFAULT: "#0A0E15", // page canvas
+          raised: "#10151E", // panels
+          line: "rgba(240,243,248,0.09)", // hairlines
+        },
+        paper: {
+          DEFAULT: "#F2F4F8", // primary text
+          dim: "rgba(242,244,248,0.64)", // secondary text
+          faint: "rgba(242,244,248,0.42)", // tertiary/labels
+        },
+        // Time-phase accents (validated for CVD + contrast on dark surface).
+        past: {
+          DEFAULT: "#D97706", // observed marks
+          soft: "rgba(217,119,6,0.14)",
+          text: "#F0A84B", // UI accent text (chips/links), not chart text
+        },
+        future: {
+          DEFAULT: "#0284C7", // expected marks
+          soft: "rgba(2,132,199,0.14)",
+          text: "#53B2E8",
+        },
+      },
       fontFamily: {
-        sans: [
+        display: [
+          "var(--font-grotesk)",
           "-apple-system",
           "BlinkMacSystemFont",
-          "SF Pro Display",
-          "SF Pro Text",
           "Segoe UI",
           "Roboto",
           "Helvetica Neue",
           "Arial",
           "sans-serif",
         ],
+        sans: [
+          "-apple-system",
+          "BlinkMacSystemFont",
+          "Segoe UI",
+          "Roboto",
+          "Helvetica Neue",
+          "Arial",
+          "sans-serif",
+        ],
+        quip: ["Georgia", "Times New Roman", "serif"],
       },
       animation: {
         "fade-in": "fadeIn 0.6s ease-out both",

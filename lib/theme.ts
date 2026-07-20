@@ -1,48 +1,35 @@
-// Maps the current conditions to a full-screen background gradient, mirroring
-// the way Apple Weather tints the whole screen by weather + time of day.
+// Condition accents for the flat ink canvas.
 //
-// Gradients are kept deep/saturated so white foreground text stays high-contrast
-// (a subtle dark scrim in WeatherApp reinforces this at the top/bottom edges).
+// Unlike Apple Weather, the page background never becomes a sky. The condition
+// tints exactly one thing: a soft radial glow behind the Yesterday hero, so the
+// weather still registers emotionally without the app wearing it everywhere.
 
 import type { IconKind } from "./weather";
 
-export interface Theme {
-  gradient: string;
-  dark: boolean;
-}
-
-export function themeFor(icon: IconKind, isDay: boolean): Theme {
+/** rgba() color for the hero's radial glow. Keep alphas low — it's an accent. */
+export function glowFor(icon: IconKind, isDay: boolean): string {
   switch (icon) {
     case "clear-day":
-      return { gradient: "from-sky-600 via-blue-600 to-blue-800", dark: true };
+      return "rgba(245, 158, 11, 0.20)";
     case "partly-day":
-      return { gradient: "from-sky-600 via-blue-700 to-blue-900", dark: true };
+      return "rgba(245, 158, 11, 0.15)";
     case "clear-night":
-      return { gradient: "from-slate-900 via-indigo-950 to-slate-950", dark: true };
     case "partly-night":
-      return { gradient: "from-slate-800 via-slate-900 to-indigo-950", dark: true };
+      return "rgba(99, 102, 241, 0.16)";
     case "cloudy":
-      return isDay
-        ? { gradient: "from-slate-500 via-slate-600 to-slate-800", dark: true }
-        : { gradient: "from-slate-700 via-slate-800 to-slate-950", dark: true };
+      return isDay ? "rgba(148, 163, 184, 0.14)" : "rgba(100, 116, 139, 0.12)";
     case "fog":
-      return isDay
-        ? { gradient: "from-slate-500 via-slate-600 to-slate-700", dark: true }
-        : { gradient: "from-slate-700 via-slate-800 to-slate-900", dark: true };
+      return "rgba(148, 163, 184, 0.12)";
     case "drizzle":
     case "rain":
     case "showers":
-      return isDay
-        ? { gradient: "from-slate-600 via-slate-700 to-blue-900", dark: true }
-        : { gradient: "from-slate-800 via-slate-900 to-blue-950", dark: true };
+      return "rgba(14, 116, 233, 0.16)";
     case "freezing-rain":
     case "snow":
-      return isDay
-        ? { gradient: "from-slate-500 via-slate-600 to-blue-700", dark: true }
-        : { gradient: "from-slate-600 via-slate-700 to-slate-900", dark: true };
+      return "rgba(186, 210, 235, 0.14)";
     case "thunderstorm":
-      return { gradient: "from-slate-700 via-slate-900 to-indigo-950", dark: true };
+      return "rgba(139, 92, 246, 0.18)";
     default:
-      return { gradient: "from-sky-600 to-blue-800", dark: true };
+      return "rgba(148, 163, 184, 0.12)";
   }
 }

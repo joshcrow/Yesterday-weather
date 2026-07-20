@@ -10,12 +10,18 @@ body {
 }
 
 body {
+  background-color: #0a0e15;
+  color: #f2f4f8;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
 }
 
-/* Hide scrollbars on the horizontal hourly strip while keeping it scrollable. */
+::selection {
+  background: rgba(217, 119, 6, 0.35);
+}
+
+/* Hide scrollbars on horizontal strips while keeping them scrollable. */
 .no-scrollbar {
   -ms-overflow-style: none;
   scrollbar-width: none;
@@ -24,7 +30,9 @@ body {
   display: none;
 }
 
-/* Smooth the whole-page gradient transitions when conditions change. */
-.bg-transition {
-  transition: background 800ms ease;
+/* Visible keyboard focus that matches the accent system. */
+:focus-visible {
+  outline: 2px solid rgba(240, 168, 75, 0.7);
+  outline-offset: 2px;
+  border-radius: 6px;
 }

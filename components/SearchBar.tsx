@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { Place, Units } from "@/lib/weather";
-import { searchPlaces, formatPlaceLabel } from "@/lib/geocode";
+import { searchPlaces } from "@/lib/geocode";
 
 interface Props {
   onSelect: (place: Place) => void;
@@ -72,31 +72,31 @@ export default function SearchBar({
   }
 
   return (
-    <div className="relative z-20 flex items-center gap-2">
+    <div className="relative z-30 flex items-center gap-2">
       <div ref={boxRef} className="relative flex-1">
-        <div className="flex items-center gap-2 rounded-full bg-black/25 px-4 py-2.5 backdrop-blur-md ring-1 ring-white/20">
-          <SearchGlyph className="h-4 w-4 shrink-0 text-white/85" />
+        <div className="flex items-center gap-2.5 rounded-xl border border-ink-line bg-white/[0.05] px-3.5 py-2.5 transition-colors focus-within:border-past-text/50">
+          <SearchGlyph className="h-4 w-4 shrink-0 text-paper-faint" />
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onFocus={() => results.length && setOpen(true)}
             placeholder="Search for a city"
-            className="w-full bg-transparent text-[15px] text-white placeholder-white/75 outline-none"
+            className="w-full bg-transparent text-[15px] text-paper placeholder-paper-faint outline-none"
             aria-label="Search for a city"
           />
-          {searching && <Spinner className="h-4 w-4 shrink-0 text-white/85" />}
+          {searching && <Spinner className="h-4 w-4 shrink-0 text-paper-faint" />}
         </div>
 
         {open && results.length > 0 && (
-          <ul className="absolute left-0 right-0 top-full mt-2 overflow-hidden rounded-2xl bg-slate-900/80 backdrop-blur-xl ring-1 ring-white/15 shadow-2xl">
+          <ul className="absolute left-0 right-0 top-full z-40 mt-2 overflow-hidden rounded-xl border border-ink-line bg-[#0E1219]/95 shadow-2xl backdrop-blur-sm">
             {results.map((p, i) => (
               <li key={`${p.latitude},${p.longitude},${i}`}>
                 <button
                   onClick={() => choose(p)}
-                  className="flex w-full items-center justify-between px-4 py-3 text-left text-white transition-colors hover:bg-white/10"
+                  className="flex w-full items-center justify-between border-b border-ink-line px-4 py-2.5 text-left transition-colors last:border-b-0 hover:bg-white/[0.06]"
                 >
-                  <span className="text-[15px] font-medium">{p.name}</span>
-                  <span className="ml-3 truncate text-xs text-white/70">
+                  <span className="text-[14px] font-medium text-paper">{p.name}</span>
+                  <span className="ml-3 truncate text-xs text-paper-faint">
                     {[p.admin1, p.country].filter(Boolean).join(", ")}
                   </span>
                 </button>
@@ -111,16 +111,16 @@ export default function SearchBar({
         disabled={busy}
         title="Use my location"
         aria-label="Use my location"
-        className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-black/25 backdrop-blur-md ring-1 ring-white/20 transition-colors hover:bg-black/40 disabled:opacity-50"
+        className="grid h-[42px] w-[42px] shrink-0 place-items-center rounded-xl border border-ink-line bg-white/[0.05] transition-colors hover:bg-white/[0.1] disabled:opacity-50"
       >
-        <LocationGlyph className="h-[18px] w-[18px] text-white" />
+        <LocationGlyph className="h-[17px] w-[17px] text-paper-dim" />
       </button>
 
       <button
         onClick={onToggleUnits}
         title="Toggle temperature units"
         aria-label="Toggle temperature units"
-        className="grid h-10 shrink-0 place-items-center rounded-full bg-black/25 px-3 text-sm font-semibold text-white backdrop-blur-md ring-1 ring-white/20 transition-colors hover:bg-black/40"
+        className="grid h-[42px] shrink-0 place-items-center rounded-xl border border-ink-line bg-white/[0.05] px-3 font-display text-sm font-semibold text-paper transition-colors hover:bg-white/[0.1]"
       >
         {units === "imperial" ? "°F" : "°C"}
       </button>
@@ -140,13 +140,9 @@ function SearchGlyph({ className }: { className?: string }) {
 function LocationGlyph({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 24 24" fill="none" className={className} aria-hidden="true">
-      <path
-        d="M12 2v2.05A8 8 0 0 0 4.05 12H2v0h2.05A8 8 0 0 0 12 19.95V22h0v-2.05A8 8 0 0 0 19.95 12H22h-2.05A8 8 0 0 0 12 4.05V2z"
-        fill="currentColor"
-        opacity="0.35"
-      />
       <circle cx="12" cy="12" r="8" stroke="currentColor" strokeWidth="1.6" />
       <circle cx="12" cy="12" r="3" fill="currentColor" />
+      <path d="M12 2v3M12 19v3M2 12h3M19 12h3" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
     </svg>
   );
 }

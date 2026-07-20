@@ -1,14 +1,14 @@
-// Weather data layer for *Yesterday* — a weather app in reverse.
+// Weather data layer for Yesterday° — the weather ledger.
 //
-// Instead of a forecast, this fetches the RECENT PAST from Open-Meteo (free, no
-// API key) using its `past_days` parameter, and presents it as if it were a
-// normal weather app: a "current conditions" hero that's actually *yesterday*,
-// an hourly strip that runs backward into the past, and a "last 10 days" list
-// whose rows expand into a full day breakdown.
+// One Open-Meteo request (free, no API key) covers the whole timeline:
+// `past_days=10` for hindsight, `forecast_days=8` for foresight. The app leads
+// with yesterday (the brand), shows now in passing, and charts a continuous
+// 48-hour window — 24h observed behind, 24h expected ahead.
 //
 // Open-Meteo docs: https://open-meteo.com/en/docs
 
 export type Units = "metric" | "imperial";
+export type Phase = "past" | "today" | "future";
 
 export interface Coordinates {
   latitude: number;
@@ -36,57 +36,46 @@ export type IconKind =
   | "snow"
   | "thunderstorm";
 
-export interface HourEntry {
-  kind: "hour" | "sunrise" | "sunset";
-  time: string; // ISO local time, e.g. "2026-07-11T13:00"
-  label: string; // "Now", "1PM", "Sunrise", ...
-  temperature?: number;
-  weatherCode?: number;
-  icon?: IconKind;
-  isDay?: boolean;
-  precipitationProbability?: number;
-  precipitation?: number; // amount this hour (mm or in)
-}
-
-/** One hour within a specific day (used by the expandable day view). */
-export interface DayHour {
-  time: string;
-  label: string; // "2PM"
+/** One hourly sample on the 48-hour timeline (or inside a day breakdown). */
+export interface TimelinePoint {
+  time: string; // ISO local wall-clock, e.g. "2026-07-19T13:00"
+  label: string; // "1PM" ("Now" at the pivot)
   temperature: number;
-  icon: IconKind;
-  weatherCode: number;
-  isDay: boolean;
   precipitationProbability: number;
+  weatherCode: number;
+  icon: IconKind;
+  isDay: boolean;
+  observed: boolean; // true = happened; false = expected
 }
 
 export interface DayEntry {
-  date: string; // "2026-07-11"
-  dayLabel: string; // "Today", "Yesterday", "Mon", ...
+  date: string; // "2026-07-19"
+  dayLabel: string; // "Yesterday", "Today", "Tomorrow", "Mon", ...
+  subLabel: string; // "Jul 19"
+  phase: Phase;
   weatherCode: number;
   icon: IconKind;
   tempMax: number;
   tempMin: number;
   apparentMax: number;
   apparentMin: number;
-  precipitationProbability: number; // max % that day
-  precipitationSum: number; // total that day (mm or in)
+  precipitationProbability: number;
+  precipitationSum: number;
   uvIndexMax: number;
   windMax: number;
   windGustsMax: number;
   windDirDominant: number;
   sunrise: string;
   sunset: string;
-  hours: DayHour[]; // that calendar day's hours (today is capped at "now")
+  hours: TimelinePoint[]; // full day; for today, only up to "now" is observed
 }
 
 /** The headline snapshot — yesterday, at this same hour. */
 export interface Headline {
-  dayLabel: string; // "Yesterday"
-  date: string; // yesterday's date
-  atHourLabel: string; // the current hour, e.g. "1PM"
+  date: string;
+  atHourLabel: string;
   temperature: number;
   apparentTemperature: number;
-  weatherCode: number;
   description: string;
   icon: IconKind;
   isDay: boolean;
@@ -102,18 +91,39 @@ export interface Headline {
   sunset: string;
 }
 
+/** Right now — rendered small, on purpose. */
+export interface NowConditions {
+  temperature: number;
+  apparentTemperature: number;
+  description: string;
+  icon: IconKind;
+  isDay: boolean;
+  humidity: number;
+  windSpeed: number;
+}
+
+/** A local night interval [sunset, next sunrise] for chart shading. */
+export interface NightSpan {
+  start: string;
+  end: string;
+}
+
 export interface WeatherData {
   place: Place;
   units: Units;
   headline: Headline;
+  now: NowConditions;
   yesterdayHigh: number;
   yesterdayLow: number;
   yesterdayPrecipTotal: number;
   yesterdayPrecipProb: number;
-  past24Precip: number; // total precipitation across the visible hourly strip
-  currentTemp: number; // today, right now — used only for the "Today" bar marker
-  hourly: HourEntry[]; // past 24 hours, most-recent first
-  daily: DayEntry[]; // today + previous days, most-recent first
+  past24Precip: number;
+  timeline: TimelinePoint[]; // -24h .. +24h, chronological
+  nowIndex: number; // index of the pivot inside `timeline`
+  nights: NightSpan[]; // night intervals overlapping the timeline window
+  hindsight: DayEntry[]; // yesterday .. -7, most recent first
+  foresight: DayEntry[]; // today .. +7, chronological
+  tempDomain: { min: number; max: number }; // across every ledger day
   fetchedAt: string;
 }
 
@@ -184,15 +194,16 @@ export function describeWeather(
 }
 
 // ---------------------------------------------------------------------------
-// Time helpers — Open-Meteo times are already in the location's local timezone
-// (timezone=auto), so we treat them as wall-clock strings.
+// Time helpers — Open-Meteo returns the location's local wall-clock times
+// (timezone=auto). We never let the browser's own timezone reinterpret them:
+// comparisons are lexical, arithmetic uses a wall-clock pseudo-epoch.
 // ---------------------------------------------------------------------------
 
 function hourKey(iso: string): string {
   return iso.slice(0, 13);
 }
 
-function formatHourLabel(iso: string): string {
+export function formatHourLabel(iso: string): string {
   const hour = parseInt(iso.slice(11, 13), 10);
   const period = hour >= 12 ? "PM" : "AM";
   const h12 = hour % 12 === 0 ? 12 : hour % 12;
@@ -207,14 +218,33 @@ export function formatClock(iso: string): string {
   return `${h12}:${minute} ${period}`;
 }
 
+/** Minutes since a fixed origin, treating the ISO string as wall-clock. */
+export function wallMinutes(iso: string): number {
+  const y = +iso.slice(0, 4);
+  const mo = +iso.slice(5, 7);
+  const d = +iso.slice(8, 10);
+  const h = +iso.slice(11, 13);
+  const mi = +(iso.slice(14, 16) || 0);
+  return Date.UTC(y, mo - 1, d, h, mi) / 60000;
+}
+
 function weekdayLabel(dateStr: string): string {
-  const d = new Date(`${dateStr}T12:00:00`);
-  return d.toLocaleDateString("en-US", { weekday: "short" });
+  return new Date(`${dateStr}T12:00:00`).toLocaleDateString("en-US", { weekday: "short" });
+}
+
+export function monthDayLabel(dateStr: string): string {
+  return new Date(`${dateStr}T12:00:00`).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+  });
 }
 
 export function formatLongDate(dateStr: string): string {
-  const d = new Date(`${dateStr}T12:00:00`);
-  return d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+  return new Date(`${dateStr}T12:00:00`).toLocaleDateString("en-US", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -222,7 +252,8 @@ export function formatLongDate(dateStr: string): string {
 // ---------------------------------------------------------------------------
 
 const PAST_DAYS = 10;
-const HOURS_BACK = 24;
+const FORECAST_DAYS = 8;
+const CHART_HOURS = 24; // each side of "now"
 
 function unitParams(units: Units): string {
   return units === "imperial"
@@ -234,7 +265,14 @@ export async function fetchWeather(
   place: Place,
   units: Units = "imperial"
 ): Promise<WeatherData> {
-  const current = ["temperature_2m", "weather_code", "is_day"].join(",");
+  const current = [
+    "temperature_2m",
+    "apparent_temperature",
+    "relative_humidity_2m",
+    "weather_code",
+    "is_day",
+    "wind_speed_10m",
+  ].join(",");
 
   const hourly = [
     "temperature_2m",
@@ -275,7 +313,8 @@ export async function fetchWeather(
     `&current=${current}` +
     `&hourly=${hourly}` +
     `&daily=${daily}` +
-    `&timezone=auto&past_days=${PAST_DAYS}&forecast_days=1&${unitParams(units)}`;
+    `&timezone=auto&past_days=${PAST_DAYS}&forecast_days=${FORECAST_DAYS}` +
+    `&${unitParams(units)}`;
 
   const res = await fetch(url);
   if (!res.ok) {
@@ -296,22 +335,35 @@ function normalize(raw: any, place: Place, units: Units): WeatherData {
   let nowIdx = hTimes.findIndex((t) => hourKey(t) >= nowKey);
   if (nowIdx === -1) nowIdx = hTimes.length - 1;
 
-  // Yesterday, at this same hour.
+  const todayDate = raw.current.time.slice(0, 10);
+  let todayD = dTimes.indexOf(todayDate);
+  if (todayD === -1) todayD = PAST_DAYS; // structural fallback
+  const yesterdayD = Math.max(todayD - 1, 0);
+
+  const point = (i: number, observed: boolean, label?: string): TimelinePoint => {
+    const isDay = h.is_day[i] === 1;
+    const code = h.weather_code[i];
+    return {
+      time: hTimes[i],
+      label: label ?? formatHourLabel(hTimes[i]),
+      temperature: Math.round(h.temperature_2m[i]),
+      precipitationProbability: h.precipitation_probability?.[i] ?? 0,
+      weatherCode: code,
+      icon: describeWeather(code, isDay).icon,
+      isDay,
+      observed,
+    };
+  };
+
+  // --- Headline: yesterday at this hour. -----------------------------------
   const yIdx = Math.max(nowIdx - 24, 0);
   const yIsDay = h.is_day[yIdx] === 1;
   const yInfo = describeWeather(h.weather_code[yIdx], yIsDay);
-
-  // Daily indices: with past_days + forecast_days=1, the last daily entry is today.
-  const todayD = dTimes.length - 1;
-  const yesterdayD = Math.max(dTimes.length - 2, 0);
-
   const headline: Headline = {
-    dayLabel: "Yesterday",
     date: dTimes[yesterdayD],
     atHourLabel: formatHourLabel(raw.current.time),
     temperature: Math.round(h.temperature_2m[yIdx]),
     apparentTemperature: Math.round(h.apparent_temperature[yIdx]),
-    weatherCode: h.weather_code[yIdx],
     description: yInfo.description,
     icon: yInfo.icon,
     isDay: yIsDay,
@@ -327,109 +379,121 @@ function normalize(raw: any, place: Place, units: Units): WeatherData {
     sunset: d.sunset[yesterdayD],
   };
 
-  // Hourly strip: the past 24 hours, most-recent first (so it reads backward).
-  const stop = Math.max(nowIdx - HOURS_BACK, 0);
-  const hourEntries: HourEntry[] = [];
+  // --- Now (kept modest by design). -----------------------------------------
+  const nowIsDay = raw.current.is_day === 1;
+  const nowInfo = describeWeather(raw.current.weather_code, nowIsDay);
+  const now: NowConditions = {
+    temperature: Math.round(raw.current.temperature_2m),
+    apparentTemperature: Math.round(raw.current.apparent_temperature),
+    description: nowInfo.description,
+    icon: nowInfo.icon,
+    isDay: nowIsDay,
+    humidity: Math.round(raw.current.relative_humidity_2m),
+    windSpeed: Math.round(raw.current.wind_speed_10m),
+  };
+
+  // --- 48h timeline: 24 observed + now + 24 expected. -----------------------
+  const start = Math.max(nowIdx - CHART_HOURS, 0);
+  const end = Math.min(nowIdx + CHART_HOURS, hTimes.length - 1);
+  const timeline: TimelinePoint[] = [];
   let past24Precip = 0;
-  for (let i = nowIdx; i >= stop; i--) {
-    const isDay = h.is_day[i] === 1;
-    const code = h.weather_code[i];
-    past24Precip += h.precipitation?.[i] ?? 0;
-    hourEntries.push({
-      kind: "hour",
-      time: hTimes[i],
-      label: i === nowIdx ? "Now" : formatHourLabel(hTimes[i]),
-      temperature: Math.round(h.temperature_2m[i]),
-      weatherCode: code,
-      icon: describeWeather(code, isDay).icon,
-      isDay,
-      precipitationProbability: h.precipitation_probability?.[i] ?? 0,
-      precipitation: h.precipitation?.[i] ?? 0,
+  for (let i = start; i <= end; i++) {
+    timeline.push(point(i, i <= nowIdx, i === nowIdx ? "Now" : undefined));
+    if (i <= nowIdx && i > nowIdx - 24) past24Precip += h.precipitation?.[i] ?? 0;
+  }
+  const nowIndex = nowIdx - start;
+
+  // Night spans (sunset -> next day's sunrise) clipped to the chart window.
+  const windowStart = hTimes[start];
+  const windowEnd = hTimes[end];
+  const nights: NightSpan[] = [];
+  for (let di = 0; di < dTimes.length - 1; di++) {
+    const dusk: string | undefined = d.sunset[di];
+    const dawn: string | undefined = d.sunrise[di + 1];
+    if (!dusk || !dawn) continue;
+    if (dawn <= windowStart || dusk >= windowEnd) continue;
+    nights.push({
+      start: dusk < windowStart ? windowStart : dusk,
+      end: dawn > windowEnd ? windowEnd : dawn,
     });
   }
 
-  // Splice in sunrise/sunset markers that fall inside the visible window.
-  const windowStart = hTimes[stop];
-  const windowEnd = hTimes[nowIdx];
-  const sunEvents: HourEntry[] = [];
-  for (const di of [todayD, yesterdayD]) {
-    const sr: string | undefined = d.sunrise[di];
-    const ss: string | undefined = d.sunset[di];
-    if (sr && sr >= windowStart && sr <= windowEnd)
-      sunEvents.push({ kind: "sunrise", time: sr, label: "Sunrise" });
-    if (ss && ss >= windowStart && ss <= windowEnd)
-      sunEvents.push({ kind: "sunset", time: ss, label: "Sunset" });
-  }
-  const hourly = [...hourEntries, ...sunEvents].sort((a, b) =>
-    a.time > b.time ? -1 : a.time < b.time ? 1 : 0
-  );
-
-  // Group hourly indices by calendar date for the expandable day views.
+  // --- The ledger: hindsight (yesterday back) + foresight (today forward). --
   const byDate: Record<string, number[]> = {};
   for (let i = 0; i < hTimes.length; i++) {
     const day = hTimes[i].slice(0, 10);
     (byDate[day] ||= []).push(i);
   }
 
-  // Daily list: today + previous days, most-recent first.
-  const daily: DayEntry[] = [];
-  for (let i = dTimes.length - 1; i >= 0; i--) {
-    const dateStr = dTimes[i];
-    const code = d.weather_code[i];
+  const buildDay = (di: number): DayEntry => {
+    const dateStr = dTimes[di];
+    const phase: Phase = di < todayD ? "past" : di === todayD ? "today" : "future";
     const label =
-      i === todayD ? "Today" : i === todayD - 1 ? "Yesterday" : weekdayLabel(dateStr);
-
-    // Today is only "real" up to the current hour (no peeking at the future).
-    const idxs = (byDate[dateStr] || []).filter((k) => (i === todayD ? k <= nowIdx : true));
-    const hours: DayHour[] = idxs.map((k) => {
-      const isDay = h.is_day[k] === 1;
-      const c = h.weather_code[k];
-      return {
-        time: hTimes[k],
-        label: hTimes[k].slice(11, 13) === raw.current.time.slice(11, 13) && i === todayD
-          ? "Now"
-          : formatHourLabel(hTimes[k]),
-        temperature: Math.round(h.temperature_2m[k]),
-        icon: describeWeather(c, isDay).icon,
-        weatherCode: c,
-        isDay,
-        precipitationProbability: h.precipitation_probability?.[k] ?? 0,
-      };
-    });
-
-    daily.push({
+      di === todayD
+        ? "Today"
+        : di === todayD - 1
+        ? "Yesterday"
+        : di === todayD + 1
+        ? "Tomorrow"
+        : weekdayLabel(dateStr);
+    const code = d.weather_code[di];
+    const hours = (byDate[dateStr] || []).map((k) =>
+      point(k, k <= nowIdx, k === nowIdx ? "Now" : undefined)
+    );
+    return {
       date: dateStr,
       dayLabel: label,
+      subLabel: monthDayLabel(dateStr),
+      phase,
       weatherCode: code,
       icon: describeWeather(code, true).icon,
-      tempMax: Math.round(d.temperature_2m_max[i]),
-      tempMin: Math.round(d.temperature_2m_min[i]),
-      apparentMax: Math.round(d.apparent_temperature_max?.[i] ?? d.temperature_2m_max[i]),
-      apparentMin: Math.round(d.apparent_temperature_min?.[i] ?? d.temperature_2m_min[i]),
-      precipitationProbability: d.precipitation_probability_max?.[i] ?? 0,
-      precipitationSum: d.precipitation_sum?.[i] ?? 0,
-      uvIndexMax: Math.round(d.uv_index_max?.[i] ?? 0),
-      windMax: Math.round(d.wind_speed_10m_max?.[i] ?? 0),
-      windGustsMax: Math.round(d.wind_gusts_10m_max?.[i] ?? 0),
-      windDirDominant: d.wind_direction_10m_dominant?.[i] ?? 0,
-      sunrise: d.sunrise[i],
-      sunset: d.sunset[i],
+      tempMax: Math.round(d.temperature_2m_max[di]),
+      tempMin: Math.round(d.temperature_2m_min[di]),
+      apparentMax: Math.round(d.apparent_temperature_max?.[di] ?? d.temperature_2m_max[di]),
+      apparentMin: Math.round(d.apparent_temperature_min?.[di] ?? d.temperature_2m_min[di]),
+      precipitationProbability: d.precipitation_probability_max?.[di] ?? 0,
+      precipitationSum: d.precipitation_sum?.[di] ?? 0,
+      uvIndexMax: Math.round(d.uv_index_max?.[di] ?? 0),
+      windMax: Math.round(d.wind_speed_10m_max?.[di] ?? 0),
+      windGustsMax: Math.round(d.wind_gusts_10m_max?.[di] ?? 0),
+      windDirDominant: d.wind_direction_10m_dominant?.[di] ?? 0,
+      sunrise: d.sunrise[di],
+      sunset: d.sunset[di],
       hours,
-    });
+    };
+  };
+
+  const hindsight: DayEntry[] = [];
+  for (let di = yesterdayD; di >= Math.max(yesterdayD - 6, 0); di--) {
+    hindsight.push(buildDay(di));
   }
+  const foresight: DayEntry[] = [];
+  for (let di = todayD; di <= Math.min(todayD + 7, dTimes.length - 1); di++) {
+    foresight.push(buildDay(di));
+  }
+
+  const everyDay = [...hindsight, ...foresight];
+  const tempDomain = {
+    min: Math.min(...everyDay.map((x) => x.tempMin)),
+    max: Math.max(...everyDay.map((x) => x.tempMax)),
+  };
 
   return {
     place,
     units,
     headline,
+    now,
     yesterdayHigh: Math.round(d.temperature_2m_max[yesterdayD]),
     yesterdayLow: Math.round(d.temperature_2m_min[yesterdayD]),
     yesterdayPrecipTotal: d.precipitation_sum?.[yesterdayD] ?? 0,
     yesterdayPrecipProb: d.precipitation_probability_max?.[yesterdayD] ?? 0,
     past24Precip,
-    currentTemp: Math.round(raw.current.temperature_2m),
-    hourly,
-    daily,
+    timeline,
+    nowIndex,
+    nights,
+    hindsight,
+    foresight,
+    tempDomain,
     fetchedAt: raw.current.time,
   };
 }
