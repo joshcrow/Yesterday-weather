@@ -11,6 +11,7 @@ import WaterLedger from "./WaterLedger";
 import TimelineChart from "./TimelineChart";
 import Ledger from "./Ledger";
 import NumbersGrid from "./NumbersGrid";
+import RadarPanel from "./RadarPanel";
 
 const DEFAULT_PLACE: Place = {
   name: "New York",
@@ -173,6 +174,15 @@ export default function WeatherApp() {
             </div>
 
             <div className="mt-4">
+              <RadarPanel
+                place={data.place}
+                yesterdayDate={data.headline.date}
+                utcOffsetSeconds={data.utcOffsetSeconds}
+                units={units}
+              />
+            </div>
+
+            <div className="mt-4">
               <NumbersGrid
                 headline={data.headline}
                 units={units}
@@ -196,6 +206,24 @@ export default function WeatherApp() {
                 className="underline decoration-white/25 underline-offset-2 transition-colors hover:text-paper-dim"
               >
                 Open-Meteo
+              </a>
+              . Radar by{" "}
+              <a
+                href="https://mesonet.agron.iastate.edu/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline decoration-white/25 underline-offset-2 transition-colors hover:text-paper-dim"
+              >
+                NOAA/IEM
+              </a>{" "}
+              &amp;{" "}
+              <a
+                href="https://www.rainviewer.com/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline decoration-white/25 underline-offset-2 transition-colors hover:text-paper-dim"
+              >
+                RainViewer
               </a>
               .
             </footer>

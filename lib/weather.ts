@@ -161,6 +161,7 @@ export interface WeatherData {
   foresight: DayEntry[]; // today .. +7, chronological
   tempDomain: { min: number; max: number }; // across every ledger day
   water: WaterLedger;
+  utcOffsetSeconds: number; // the place's offset (timezone=auto), for the radar clock
   fetchedAt: string;
 }
 
@@ -535,6 +536,7 @@ function normalize(raw: any, place: Place, units: Units): WeatherData {
     foresight,
     tempDomain,
     water,
+    utcOffsetSeconds: raw.utc_offset_seconds ?? 0,
     fetchedAt: raw.current.time,
   };
 }

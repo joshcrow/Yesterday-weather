@@ -47,6 +47,18 @@ dark surface (OKLab ΔE ≥ 8, ≥3:1).
   week of **Foresight**, every row expandable into a full day: precipitation
   total, wind, UV, feels-like, sun times, and that day's hourly breakdown,
   each stamped **Observed** or **Expected**.
+- **Radar, on the record** — a radar that leads with *yesterday*: in the US it
+  replays the previous local day from the NOAA NEXRAD archive (48 frames,
+  half-hour steps), with a **Lately** chapter for the last two hours (plus a
+  dashed-blue nowcast epilogue, whenever RainViewer deigns to provide one).
+  No map library and no borrowed basemap — a hand-rolled tile/WMS compositor
+  on a `<canvas>`, with hairline range rings and a "you are here" mark for
+  geography. Every source pixel is re-inked into the time system: observed
+  frames render on the amber ramp, expected frames on the blue one. The
+  scrubber matches the timeline chart (solid amber → NOW → dashed blue),
+  scrubs by pointer or arrow keys, and respects `prefers-reduced-motion`.
+  Outside NEXRAD's reach it falls back to RainViewer's two-hour memory;
+  where nothing is on record it says so, deadpan.
 - **Yesterday, by the numbers** — a hairline stat grid: precipitation, felt
   like, wind, humidity, UV, sun, visibility, pressure.
 
@@ -70,7 +82,13 @@ dark surface (OKLab ΔE ≥ 8, ≥3:1).
   `forecast_days=8`; no API key
 - [BigDataCloud](https://www.bigdatacloud.com/) reverse geocoding for
   "use my location"; no key
-- Hand-rolled SVG chart — no chart library
+- Radar imagery: [NOAA NEXRAD mosaics via the Iowa Environmental
+  Mesonet](https://mesonet.agron.iastate.edu/docs/nexrad_mosaic/) (WMS-T —
+  the archive that makes *yesterday's radar* possible; public domain, no key)
+  and [RainViewer](https://www.rainviewer.com/api.html) (global composite +
+  nowcast; free public API, officially deprecated, treated as a guest that
+  may leave — the panel degrades politely if it does)
+- Hand-rolled SVG chart and canvas radar compositor — no chart or map library
 
 ## Run locally
 
@@ -101,16 +119,20 @@ components/
   YesterdayHero.tsx    Yesterday-at-this-hour + quip
   NowStrip.tsx         The present, kept modest
   TimelineChart.tsx    48h observed→expected chart (SVG, hand-rolled)
+  RadarPanel.tsx       Yesterday/Lately radar replay (canvas, hand-rolled)
   Ledger.tsx           Hindsight | Foresight, expandable days
   NumbersGrid.tsx      Yesterday's stat grid
   WeatherIcon.tsx      Colorful SVG weather glyphs
   Panel.tsx            Hairline panel + section label
 lib/
   weather.ts           Fetch + normalize past/now/future into the ledger model
+  radar.ts             Radar frames, mercator/tile math, amber/blue re-inking
   geocode.ts           Forward + reverse geocoding
   theme.ts             Condition → hero glow accent
   format.ts            Units & label formatting
 ```
 
 Hindsight is 20/20. Foresight now included, reluctantly.
-Weather data by [Open-Meteo](https://open-meteo.com/).
+Weather data by [Open-Meteo](https://open-meteo.com/). Radar by
+[NOAA/IEM](https://mesonet.agron.iastate.edu/) and
+[RainViewer](https://www.rainviewer.com/).
