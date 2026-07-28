@@ -285,15 +285,17 @@ const RAMP_PAST: RampStop[] = [
   [1.0, 255, 245, 218, 0.98],
 ];
 
-// …and dashed-era blue for what is merely projected.
+// …and bright sky-cyan for what is merely projected. The lightness arc
+// mirrors the amber ramp so light/moderate/heavy read at a glance — the old
+// navy low end vanished into the dark basemap.
 const RAMP_FUTURE: RampStop[] = [
-  [0.0, 4, 88, 134, 0.11],
-  [0.1, 2, 110, 168, 0.32],
-  [0.3, 2, 132, 199, 0.54],
-  [0.5, 42, 164, 224, 0.71],
-  [0.7, 122, 199, 240, 0.86],
-  [0.9, 196, 231, 250, 0.94],
-  [1.0, 233, 246, 255, 0.98],
+  [0.0, 24, 132, 192, 0.16],
+  [0.1, 45, 165, 224, 0.42],
+  [0.3, 56, 189, 248, 0.64],
+  [0.5, 125, 211, 252, 0.8],
+  [0.7, 186, 230, 253, 0.9],
+  [0.9, 225, 243, 254, 0.95],
+  [1.0, 242, 250, 255, 0.98],
 ];
 
 function rampColor(ramp: RampStop[], t: number): [number, number, number, number] {

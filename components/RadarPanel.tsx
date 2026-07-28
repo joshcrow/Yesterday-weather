@@ -716,7 +716,8 @@ export default function RadarPanel({ place, yesterdayDate, utcOffsetSeconds, uni
 // Drawing
 // ---------------------------------------------------------------------------
 
-/** Dark OSM tiles beneath everything, washed toward ink so echoes lead. */
+/** Dark OSM tiles beneath everything — lifted for legibility, then given a
+ * light ink wash so the echoes still lead. */
 function drawBasemap(
   ctx: CanvasRenderingContext2D,
   place: Place,
@@ -725,6 +726,10 @@ function drawBasemap(
 ) {
   ctx.imageSmoothingEnabled = true;
   let drew = false;
+  // Carto's dark tiles are near-black; brighten them so coastlines, water,
+  // and roads actually read. (Where canvas filters are unsupported the map
+  // just stays a bit darker.)
+  ctx.filter = "brightness(1.55) contrast(1.03)";
   for (const t of tilesForViewport(place.latitude, place.longitude, zoomLevel, size)) {
     const img = peekBasemap(basemapTileUrl(zoomLevel, t.x, t.y));
     if (img) {
@@ -732,8 +737,9 @@ function drawBasemap(
       drew = true;
     }
   }
+  ctx.filter = "none";
   if (drew) {
-    ctx.fillStyle = "rgba(10,14,21,0.45)";
+    ctx.fillStyle = "rgba(10,14,21,0.16)";
     ctx.fillRect(0, 0, size.w, size.h);
   }
 }
