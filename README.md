@@ -59,8 +59,15 @@ dark surface (OKLab ΔE ≥ 8, ≥3:1).
   scrubs by pointer or arrow keys, and respects `prefers-reduced-motion`.
   Outside NEXRAD's reach it falls back to RainViewer's two-hour memory;
   where nothing is on record it says so, deadpan.
+- **Consequence flags** — when yesterday left a mark, the hero says so:
+  **Froze overnight**, **Scorcher**, **Gusty**, **It snowed** — each with the
+  number that earned it. Rendered only when true; thresholds are fixed in
+  physical units so the °F/°C toggle never changes what qualifies.
 - **Yesterday, by the numbers** — a hairline stat grid: precipitation, felt
   like, wind, humidity, UV, sun, visibility, pressure.
+- **Shareable places** — the URL mirrors the current city
+  (`?lat=…&lon=…&name=…`), so a link opens exactly where you left it.
+- **/about** — the manifesto, for anyone who asks why.
 
 ## Design notes
 

@@ -130,6 +130,13 @@ export interface WaterDay {
   et0: number; // drawn out (0 for today/tomorrow — day isn't done)
 }
 
+/** A mark yesterday left behind — rendered only when it actually happened. */
+export interface ConsequenceFlag {
+  kind: "froze" | "scorcher" | "gusty" | "snowed";
+  label: string; // "Froze overnight"
+  detail: string; // "L 28°"
+}
+
 export interface WaterLedger {
   days: WaterDay[]; // last 7 days + today + tomorrow
   rain24: number; // rolling last 24h (hourly)
@@ -161,6 +168,7 @@ export interface WeatherData {
   foresight: DayEntry[]; // today .. +7, chronological
   tempDomain: { min: number; max: number }; // across every ledger day
   water: WaterLedger;
+  flags: ConsequenceFlag[]; // yesterday's notable marks (often empty)
   utcOffsetSeconds: number; // the place's offset (timezone=auto), for the radar clock
   fetchedAt: string;
 }
@@ -344,6 +352,7 @@ export async function fetchWeather(
     "wind_gusts_10m_max",
     "wind_direction_10m_dominant",
     "et0_fao_evapotranspiration",
+    "snowfall_sum",
   ].join(",");
 
   const url =
@@ -518,6 +527,7 @@ function normalize(raw: any, place: Place, units: Units): WeatherData {
   };
 
   const water = buildWaterLedger(d, dTimes, todayD, units, past24Precip, foresight);
+  const flags = buildFlags(d, yesterdayD, units);
 
   return {
     place,
@@ -536,9 +546,58 @@ function normalize(raw: any, place: Place, units: Units): WeatherData {
     foresight,
     tempDomain,
     water,
+    flags,
     utcOffsetSeconds: raw.utc_offset_seconds ?? 0,
     fetchedAt: raw.current.time,
   };
+}
+
+// ---------------------------------------------------------------------------
+// Consequence flags — the marks yesterday left behind. Thresholds convert to
+// fixed physical units so the °F/°C toggle never changes what qualifies.
+// ---------------------------------------------------------------------------
+
+function buildFlags(d: any, yesterdayD: number, units: Units): ConsequenceFlag[] {
+  const flags: ConsequenceFlag[] = [];
+  const toC = (v: number) => (units === "imperial" ? ((v - 32) * 5) / 9 : v);
+  const toMph = (v: number) => (units === "imperial" ? v : v / 1.609);
+
+  const tMin = d.temperature_2m_min?.[yesterdayD];
+  const feltMax = d.apparent_temperature_max?.[yesterdayD];
+  const gusts = d.wind_gusts_10m_max?.[yesterdayD];
+  const snow = d.snowfall_sum?.[yesterdayD] ?? 0;
+  // snowfall_sum: inches when imperial, centimeters when metric.
+  const snowNotable = units === "imperial" ? snow >= 0.1 : snow >= 0.25;
+
+  if (typeof tMin === "number" && toC(tMin) <= 0) {
+    flags.push({
+      kind: "froze",
+      label: "Froze overnight",
+      detail: `low ${Math.round(tMin)}°`,
+    });
+  }
+  if (snowNotable) {
+    flags.push({
+      kind: "snowed",
+      label: "It snowed",
+      detail: `${snow.toFixed(1)} ${units === "imperial" ? "in" : "cm"}`,
+    });
+  }
+  if (typeof feltMax === "number" && toC(feltMax) >= 35) {
+    flags.push({
+      kind: "scorcher",
+      label: "Scorcher",
+      detail: `felt ${Math.round(feltMax)}°`,
+    });
+  }
+  if (typeof gusts === "number" && toMph(gusts) >= 35) {
+    flags.push({
+      kind: "gusty",
+      label: "Gusty",
+      detail: `gusts ${Math.round(gusts)} ${units === "imperial" ? "mph" : "km/h"}`,
+    });
+  }
+  return flags;
 }
 
 // ---------------------------------------------------------------------------

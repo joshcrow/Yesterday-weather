@@ -57,6 +57,19 @@ export default function WeatherApp() {
       } catch {
         /* ignore storage errors (private mode, etc.) */
       }
+      // Keep the URL shareable: ?lat=…&lon=…&name=… mirrors the current place.
+      try {
+        const q = new URLSearchParams({
+          lat: p.latitude.toFixed(4),
+          lon: p.longitude.toFixed(4),
+          name: p.name,
+        });
+        if (p.admin1) q.set("admin1", p.admin1);
+        if (p.country) q.set("country", p.country);
+        window.history.replaceState(null, "", `?${q.toString()}`);
+      } catch {
+        /* ignore */
+      }
       load(p, u);
     },
     [load]
@@ -98,6 +111,29 @@ export default function WeatherApp() {
     }
     setUnits(initialUnits);
 
+    // A shared link wins over everything: ?lat&lon&name pins the place.
+    try {
+      const q = new URLSearchParams(window.location.search);
+      const lat = parseFloat(q.get("lat") ?? "");
+      const lon = parseFloat(q.get("lon") ?? "");
+      const name = q.get("name");
+      if (Number.isFinite(lat) && Number.isFinite(lon) && name) {
+        selectPlace(
+          {
+            name,
+            latitude: lat,
+            longitude: lon,
+            admin1: q.get("admin1") ?? undefined,
+            country: q.get("country") ?? undefined,
+          },
+          initialUnits
+        );
+        return;
+      }
+    } catch {
+      /* ignore */
+    }
+
     try {
       const sp = localStorage.getItem(PLACE_KEY);
       if (sp) {
@@ -111,7 +147,7 @@ export default function WeatherApp() {
       /* ignore */
     }
     geolocate(initialUnits);
-  }, [geolocate, load]);
+  }, [geolocate, load, selectPlace]);
 
   const toggleUnits = useCallback(() => {
     const next: Units = units === "metric" ? "imperial" : "metric";
@@ -198,7 +234,13 @@ export default function WeatherApp() {
             )}
 
             <footer className="mt-10 border-t border-ink-line pt-5 text-center text-[11.5px] text-paper-faint">
-              Hindsight is 20/20. Foresight now included, reluctantly. Data by{" "}
+              <a
+                href="/about"
+                className="underline decoration-white/25 underline-offset-2 transition-colors hover:text-paper-dim"
+              >
+                Why yesterday?
+              </a>{" "}
+              · Hindsight is 20/20. Foresight now included, reluctantly. Data by{" "}
               <a
                 href="https://open-meteo.com/"
                 target="_blank"

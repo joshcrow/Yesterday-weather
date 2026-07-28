@@ -11,9 +11,24 @@ const grotesk = localFont({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://yesterday-weather-gamma.vercel.app"),
   title: "Yesterday° — Hindsight-First Weather",
   description:
-    "The weather ledger: yesterday's conditions first, a 48-hour observed-to-expected timeline, and a week of hindsight beside a week of foresight.",
+    "The weather ledger: yesterday's conditions first, a 48-hour observed-to-expected timeline, a water ledger, radar on the record, and a week of hindsight beside a week of foresight.",
+  openGraph: {
+    title: "Yesterday° — Hindsight-First Weather",
+    description:
+      "Forecasts are opinions. Yesterday is a fact. The weather ledger leads with what the sky actually did.",
+    type: "website",
+    images: [{ url: "/og.png", width: 1200, height: 630 }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Yesterday° — Hindsight-First Weather",
+    description:
+      "Forecasts are opinions. Yesterday is a fact. The weather ledger leads with what the sky actually did.",
+    images: ["/og.png"],
+  },
 };
 
 export const viewport: Viewport = {

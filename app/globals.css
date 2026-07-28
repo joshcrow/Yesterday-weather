@@ -36,3 +36,15 @@ body {
   outline-offset: 2px;
   border-radius: 6px;
 }
+
+/* Respect reduced-motion: entrances become instant, nothing slides. */
+@media (prefers-reduced-motion: reduce) {
+  .animate-fade-in,
+  .animate-slide-up,
+  .animate-spin {
+    animation: none !important;
+  }
+  * {
+    transition-duration: 0.01ms !important;
+  }
+}

@@ -63,6 +63,22 @@ export default function YesterdayHero({ data }: { data: WeatherData }) {
           <span className="not-italic text-past-text">— </span>
           {quip(headline.icon)}
         </p>
+
+        {data.flags.length > 0 && (
+          <ul className="mt-3.5 flex flex-wrap gap-2">
+            {data.flags.map((f) => (
+              <li
+                key={f.kind}
+                className="inline-flex items-baseline gap-1.5 rounded-md border border-white/15 bg-white/[0.04] px-2 py-[3px]"
+              >
+                <span className="font-display text-[10px] font-bold uppercase tracking-[0.14em] text-paper">
+                  {f.label}
+                </span>
+                <span className="text-[11px] text-paper-dim">{f.detail}</span>
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
     </Panel>
   );
