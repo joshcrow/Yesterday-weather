@@ -52,15 +52,15 @@ dark surface (OKLab ΔE ≥ 8, ≥3:1).
   half-hour steps), with a **Lately** chapter for the last two hours (plus a
   dashed-blue nowcast epilogue, whenever RainViewer deigns to provide one) and
   an **Ahead** chapter — NOAA HRRR *simulated* reflectivity, the next 12 hours
-  as the model imagines them, labeled by lead time and rendered entirely in
-  the blue expected ramp. Subject to reality.
+  as the model imagines them, labeled by lead time. Subject to reality.
   No map library — a hand-rolled tile/WMS compositor on a `<canvas>`: a dark,
-  label-free OSM basemap (© OpenStreetMap contributors © CARTO) dimmed toward
-  ink beneath the echoes, with hairline range rings and a "you are here" mark
-  on top. Every source pixel is re-inked into the time system: observed
-  frames render on the amber ramp, expected frames on the blue one. The
-  scrubber matches the timeline chart (solid amber → NOW → dashed blue),
-  scrubs by pointer or arrow keys, and respects `prefers-reduced-motion`.
+  label-free OSM basemap (© OpenStreetMap contributors © CARTO) beneath the
+  echoes, with hairline range rings and a "you are here" mark on top. Every
+  source pixel is re-inked into one amber intensity ramp, so severity reads
+  identically in every chapter; whether a frame is record or forecast is
+  carried by the chrome — the scrubber matches the timeline chart (solid
+  amber → NOW → dashed blue), scrubs by pointer or arrow keys, and respects
+  `prefers-reduced-motion`.
   Outside NEXRAD's reach it falls back to RainViewer's two-hour memory;
   where nothing is on record it says so, deadpan.
 - **Consequence flags** — when yesterday left a mark, the hero says so:

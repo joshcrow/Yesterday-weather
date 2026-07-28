@@ -16,10 +16,11 @@
 //     reflectivity by forecast lead — the radar image the model expects,
 //     out to +12 hours.
 //
-// Neither source is displayed in its own colors. Both palettes follow the
+// No source is displayed in its own colors. Every palette follows the
 // meteorological cool→warm convention, so one classifier maps any pixel to a
-// 0..1 intensity, which is then re-inked in the app's time system: amber for
-// what happened, blue for what's merely expected.
+// 0..1 intensity, which is then re-inked in the ledger's single amber ramp —
+// intensity always reads the same way, chapter to chapter. Whether a frame
+// is record or forecast is the chrome's job (scrubber, tabs, frame chip).
 
 export type RadarChapter = "yesterday" | "lately" | "ahead";
 export type RadarPhase = "past" | "future";
@@ -274,8 +275,11 @@ export function intensityOf(r: number, g: number, b: number, a: number): number 
 
 type RampStop = [t: number, r: number, g: number, b: number, a: number];
 
-// Amber ledger ink for what actually fell…
-const RAMP_PAST: RampStop[] = [
+// One amber ledger ink for every chapter — usability first: intensity always
+// reads the same way, whether the frame is record or forecast. Observed vs
+// expected is carried by the chrome instead (solid-vs-dashed scrubber, the
+// chapter tabs, the "in 3 h" frame chip), never by the echo color.
+const RAMP: RampStop[] = [
   [0.0, 170, 85, 12, 0.1],
   [0.1, 200, 103, 8, 0.3],
   [0.3, 217, 119, 6, 0.52],
@@ -283,19 +287,6 @@ const RAMP_PAST: RampStop[] = [
   [0.7, 255, 191, 82, 0.85],
   [0.9, 255, 226, 166, 0.94],
   [1.0, 255, 245, 218, 0.98],
-];
-
-// …and bright sky-cyan for what is merely projected. The lightness arc
-// mirrors the amber ramp so light/moderate/heavy read at a glance — the old
-// navy low end vanished into the dark basemap.
-const RAMP_FUTURE: RampStop[] = [
-  [0.0, 24, 132, 192, 0.16],
-  [0.1, 45, 165, 224, 0.42],
-  [0.3, 56, 189, 248, 0.64],
-  [0.5, 125, 211, 252, 0.8],
-  [0.7, 186, 230, 253, 0.9],
-  [0.9, 225, 243, 254, 0.95],
-  [1.0, 242, 250, 255, 0.98],
 ];
 
 function rampColor(ramp: RampStop[], t: number): [number, number, number, number] {
@@ -338,7 +329,9 @@ export function recolor(img: HTMLImageElement, phase: RadarPhase): RecoloredImag
   ctx.drawImage(img, 0, 0);
   const image = ctx.getImageData(0, 0, w, h);
   const px = image.data;
-  const ramp = phase === "past" ? RAMP_PAST : RAMP_FUTURE;
+  // `phase` intentionally unused for color — one ramp for all chapters.
+  void phase;
+  const ramp = RAMP;
   let visible = 0;
   for (let i = 0; i < px.length; i += 4) {
     const t = intensityOf(px[i], px[i + 1], px[i + 2], px[i + 3]);
