@@ -4,12 +4,14 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Place, Units } from "@/lib/weather";
 import type { RadarChapter, RadarFrame } from "@/lib/radar";
 import {
+  aheadFrames,
   basemapTileUrl,
   clockLabel,
   ensureBasemap,
   ensureRecolored,
   fetchRainviewerIndex,
   groundMppAt,
+  hrrrFrameUrl,
   iemFrameUrl,
   inConus,
   latelyIemFrames,
@@ -87,9 +89,10 @@ export default function RadarPanel({ place, yesterdayDate, utcOffsetSeconds, uni
   // cap depends on which sources ended up in the timeline.
   const [effZoom, setEffZoom] = useState(nearZoom);
 
-  // The archive only covers the continental US — demote gracefully elsewhere.
+  // The archive and the model only cover the continental US — demote
+  // gracefully elsewhere.
   useEffect(() => {
-    if (!conus && chapter === "yesterday") setChapter("lately");
+    if (!conus && chapter !== "lately") setChapter("lately");
   }, [conus, chapter]);
 
   // Respect reduced motion: no autoplay, manual scrubbing still works.
@@ -149,6 +152,9 @@ export default function RadarPanel({ place, yesterdayDate, utcOffsetSeconds, uni
       let list: RadarFrame[] = [];
       if (chapter === "yesterday") {
         list = yesterdayFrames(yesterdayDate, utcOffsetSeconds);
+      } else if (chapter === "ahead") {
+        // Model foresight — HRRR simulated reflectivity, CONUS only.
+        list = aheadFrames(Date.now());
       } else if (conus) {
         // Observed frames from the national archive; if RainViewer still has
         // a nowcast to offer, append it as the dashed-blue epilogue.
@@ -214,6 +220,10 @@ export default function RadarPanel({ place, yesterdayDate, utcOffsetSeconds, uni
         const phase = f.observed ? "past" : "future";
         if (f.kind === "iem") {
           const url = iemFrameUrl(lat, lon, z, size.w, size.h, f.time);
+          return (await ensureRecolored(url, phase)).hasEcho;
+        }
+        if (f.kind === "hrrr") {
+          const url = hrrrFrameUrl(lat, lon, z, size.w, size.h, f.leadMin ?? 0);
           return (await ensureRecolored(url, phase)).hasEcho;
         }
         const tiles = tilesForViewport(lat, lon, z, size);
@@ -407,7 +417,12 @@ export default function RadarPanel({ place, yesterdayDate, utcOffsetSeconds, uni
   // Derived presentation
   // -------------------------------------------------------------------------
   const n = frames?.length ?? 0;
-  const nowIdx = frames ? lastObservedIndex(frames) : 0;
+  // -1 when every frame is speculation (the Ahead chapter).
+  const nowIdx = frames
+    ? frames.some((f) => f.observed)
+      ? lastObservedIndex(frames)
+      : -1
+    : 0;
   const hasFuture = !!frames && nowIdx < n - 1;
   const allSettled = status.length > 0 && status.every((s) => s !== "pending");
   const quietRecord = allSettled && !failedAll && !anyEcho;
@@ -416,23 +431,31 @@ export default function RadarPanel({ place, yesterdayDate, utcOffsetSeconds, uni
     ? (leadingReadyCount(status) / Math.max(n, 1)) * 100
     : 0;
   const pct = n > 1 ? (frameIndex / (n - 1)) * 100 : 0;
-  const nowPct = n > 1 ? (nowIdx / (n - 1)) * 100 : 100;
+  const nowPct = n > 1 ? (Math.max(nowIdx, 0) / (n - 1)) * 100 : 100;
 
   const caption = failedAll
-    ? "The archive is unavailable."
+    ? chapter === "ahead"
+      ? "The model is unavailable."
+      : "The archive is unavailable."
     : !frames
-      ? "Consulting the archive…"
+      ? chapter === "ahead"
+        ? "Consulting the model…"
+        : "Consulting the archive…"
       : chapter === "yesterday"
         ? `Yesterday's precipitation over ${place.name}, replayed from the archive.`
-        : hasFuture
-          ? "The last two hours, on the record — plus a few minutes of speculation."
-          : "The last two hours, on the record. The future declined to comment.";
+        : chapter === "ahead"
+          ? `The next 12 hours over ${place.name}, as the model imagines them. Subject to reality.`
+          : hasFuture
+            ? "The last two hours, on the record — plus a few minutes of speculation."
+            : "The last two hours, on the record. The future declined to comment.";
 
   const ticks = useMemo(() => {
     if (!frames || frames.length < 2) return [];
     return chapter === "yesterday"
       ? yesterdayTicks(frames, utcOffsetSeconds)
-      : latelyTicks(frames, nowIdx);
+      : chapter === "ahead"
+        ? aheadTicks(frames)
+        : latelyTicks(frames, nowIdx);
   }, [frames, chapter, utcOffsetSeconds, nowIdx]);
 
   return (
@@ -448,6 +471,7 @@ export default function RadarPanel({ place, yesterdayDate, utcOffsetSeconds, uni
               options={[
                 { value: "yesterday" as const, label: "Yesterday" },
                 { value: "lately" as const, label: "Lately" },
+                { value: "ahead" as const, label: "Ahead" },
               ]}
             />
           )}
@@ -570,7 +594,7 @@ export default function RadarPanel({ place, yesterdayDate, utcOffsetSeconds, uni
             </div>
           </div>
 
-          {hasFuture && (
+          {hasFuture && nowPct > 0 && (
             <div
               className="absolute top-1/2 h-3.5 w-px -translate-y-1/2 bg-paper/25"
               style={{ left: `${nowPct}%` }}
@@ -653,7 +677,16 @@ export default function RadarPanel({ place, yesterdayDate, utcOffsetSeconds, uni
         </span>
         <span>
           Radar:{" "}
-          {chapter === "yesterday" || (conus && chapter === "lately") ? (
+          {chapter === "ahead" ? (
+            <a
+              href="https://mesonet.agron.iastate.edu/ogc/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline decoration-white/25 underline-offset-2 transition-colors hover:text-paper-dim"
+            >
+              NOAA HRRR via IEM
+            </a>
+          ) : chapter === "yesterday" || (conus && chapter === "lately") ? (
             <>
               <a
                 href="https://mesonet.agron.iastate.edu/docs/nexrad_mosaic/"
@@ -714,6 +747,19 @@ function drawRadarFrame(
   host: string
 ) {
   ctx.imageSmoothingEnabled = true;
+  if (frame.kind === "hrrr") {
+    const url = hrrrFrameUrl(
+      place.latitude,
+      place.longitude,
+      zoomLevel,
+      size.w,
+      size.h,
+      frame.leadMin ?? 0
+    );
+    const rec = peekRecolored(url, "future");
+    if (rec) ctx.drawImage(rec.canvas, 0, 0, size.w, size.h);
+    return;
+  }
   if (frame.kind === "iem") {
     const url = iemFrameUrl(
       place.latitude,
@@ -868,6 +914,13 @@ function leadingReadyCount(status: FrameStatus[]): number {
 // Terse — the swatch line beside it already says observed/expected.
 function frameChip(frame: RadarFrame, chapter: RadarChapter): string {
   if (chapter === "yesterday") return "Yesterday";
+  if (chapter === "ahead") {
+    const lead = frame.leadMin ?? 0;
+    if (lead === 0) return "now-ish";
+    if (lead < 60) return `in ${lead} min`;
+    const h = lead / 60;
+    return `in ${h % 1 === 0 ? h : h.toFixed(1)} h`;
+  }
   const rel = Math.round((Date.now() / 1000 - frame.time) / 60);
   if (!frame.observed) return `+${Math.max(-rel, 0)} min`;
   if (rel <= 1) return "just now";
@@ -890,6 +943,22 @@ function yesterdayTicks(frames: RadarFrame[], utcOffsetSeconds: number): Tick[] 
     if (min !== 0 || hr % 6 !== 0) return;
     const label = hr === 0 ? "12 AM" : hr === 12 ? "12 PM" : hr < 12 ? `${hr} AM` : `${hr - 12} PM`;
     ticks.push({ pct: (i / (n - 1)) * 100, label, strong: hr === 0, minor: hr % 12 !== 0 });
+  });
+  return ticks;
+}
+
+function aheadTicks(frames: RadarFrame[]): Tick[] {
+  const n = frames.length;
+  const ticks: Tick[] = [{ pct: 0, label: "NOW", strong: true }];
+  frames.forEach((f, i) => {
+    const lead = f.leadMin ?? 0;
+    if (lead === 0 || lead % 180 !== 0) return;
+    ticks.push({
+      pct: (i / (n - 1)) * 100,
+      label: `+${lead / 60}H`,
+      strong: false,
+      minor: lead % 360 !== 0,
+    });
   });
   return ticks;
 }

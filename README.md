@@ -50,7 +50,10 @@ dark surface (OKLab ΔE ≥ 8, ≥3:1).
 - **Radar, on the record** — a radar that leads with *yesterday*: in the US it
   replays the previous local day from the NOAA NEXRAD archive (48 frames,
   half-hour steps), with a **Lately** chapter for the last two hours (plus a
-  dashed-blue nowcast epilogue, whenever RainViewer deigns to provide one).
+  dashed-blue nowcast epilogue, whenever RainViewer deigns to provide one) and
+  an **Ahead** chapter — NOAA HRRR *simulated* reflectivity, the next 12 hours
+  as the model imagines them, labeled by lead time and rendered entirely in
+  the blue expected ramp. Subject to reality.
   No map library — a hand-rolled tile/WMS compositor on a `<canvas>`: a dark,
   label-free OSM basemap (© OpenStreetMap contributors © CARTO) dimmed toward
   ink beneath the echoes, with hairline range rings and a "you are here" mark

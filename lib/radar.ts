@@ -1,6 +1,6 @@
 // Radar data layer for Yesterday° — precipitation, on the record.
 //
-// Two keyless sources, one ledger:
+// Three keyless sources, one ledger:
 //   • Iowa Environmental Mesonet (NOAA NEXRAD mosaic, public domain) — CONUS.
 //     A WMS with a TIME parameter whose archive reaches back years, which is
 //     the whole point: it can replay *yesterday's* radar, not just teasers of
@@ -12,20 +12,24 @@
 //     nowcast. Standard XYZ tiles. The free API is officially deprecated, so
 //     everything here treats it as a guest that may leave without saying
 //     goodbye. Docs: https://www.rainviewer.com/api.html
+//   • IEM again for the Ahead chapter (CONUS): NOAA HRRR simulated
+//     reflectivity by forecast lead — the radar image the model expects,
+//     out to +12 hours.
 //
 // Neither source is displayed in its own colors. Both palettes follow the
 // meteorological cool→warm convention, so one classifier maps any pixel to a
 // 0..1 intensity, which is then re-inked in the app's time system: amber for
 // what happened, blue for what's merely expected.
 
-export type RadarChapter = "yesterday" | "lately";
+export type RadarChapter = "yesterday" | "lately" | "ahead";
 export type RadarPhase = "past" | "future";
 
 export interface RadarFrame {
-  time: number; // unix seconds, UTC
+  time: number; // unix seconds, UTC (approximate for model frames)
   observed: boolean;
-  kind: "iem" | "rv";
+  kind: "iem" | "rv" | "hrrr";
   rvPath?: string; // RainViewer tile path for kind "rv"
+  leadMin?: number; // forecast lead in minutes for kind "hrrr"
 }
 
 export interface RainviewerIndex {
@@ -68,6 +72,53 @@ export function latelyIemFrames(nowMs: number): RadarFrame[] {
     observed: true,
     kind: "iem" as const,
   }));
+}
+
+/**
+ * The Ahead chapter (CONUS): NOAA HRRR *simulated* reflectivity — what the
+ * radar is expected to show — served by IEM per forecast lead from the latest
+ * model run. Half-hour steps out to +12h. Labeled by lead ("in 3 h") rather
+ * than wall clock, since the run's exact age isn't advertised.
+ */
+export function aheadFrames(nowMs: number): RadarFrame[] {
+  const nowSec = Math.floor(nowMs / 1000);
+  return Array.from({ length: 25 }, (_, i) => ({
+    time: nowSec + i * 1800,
+    observed: false,
+    kind: "hrrr" as const,
+    leadMin: i * 30,
+  }));
+}
+
+const HRRR_WMS = "https://mesonet.agron.iastate.edu/cgi-bin/wms/hrrr/refd.cgi";
+
+/** One HRRR simulated-reflectivity frame covering the viewport, by lead time.
+ * The hour bucket busts caches when a newer model run supersedes the frames. */
+export function hrrrFrameUrl(
+  centerLat: number,
+  centerLon: number,
+  zoom: number,
+  cssWidth: number,
+  cssHeight: number,
+  leadMin: number
+): string {
+  const mpp = mercMppAt(zoom);
+  const cx = mercX(centerLon);
+  const cy = mercY(centerLat);
+  const halfW = (mpp * cssWidth) / 2;
+  const halfH = (mpp * cssHeight) / 2;
+  const w = Math.max(Math.round(cssWidth / 2), 320);
+  const h = Math.max(Math.round(cssHeight / 2), 160);
+  const bbox = [cx - halfW, cy - halfH, cx + halfW, cy + halfH]
+    .map((v) => v.toFixed(0))
+    .join(",");
+  const layer = `refd_${String(leadMin).padStart(4, "0")}`;
+  const runBucket = Math.floor(Date.now() / 3600000);
+  return (
+    `${HRRR_WMS}?SERVICE=WMS&VERSION=1.1.1&REQUEST=GetMap` +
+    `&LAYERS=${layer}&SRS=EPSG:3857&FORMAT=image/png&TRANSPARENT=true` +
+    `&BBOX=${bbox}&WIDTH=${w}&HEIGHT=${h}&_run=${runBucket}`
+  );
 }
 
 const RV_INDEX_URL = "https://api.rainviewer.com/public/weather-maps.json";
