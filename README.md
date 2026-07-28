@@ -51,9 +51,10 @@ dark surface (OKLab ΔE ≥ 8, ≥3:1).
   replays the previous local day from the NOAA NEXRAD archive (48 frames,
   half-hour steps), with a **Lately** chapter for the last two hours (plus a
   dashed-blue nowcast epilogue, whenever RainViewer deigns to provide one).
-  No map library and no borrowed basemap — a hand-rolled tile/WMS compositor
-  on a `<canvas>`, with hairline range rings and a "you are here" mark for
-  geography. Every source pixel is re-inked into the time system: observed
+  No map library — a hand-rolled tile/WMS compositor on a `<canvas>`: a dark,
+  label-free OSM basemap (© OpenStreetMap contributors © CARTO) dimmed toward
+  ink beneath the echoes, with hairline range rings and a "you are here" mark
+  on top. Every source pixel is re-inked into the time system: observed
   frames render on the amber ramp, expected frames on the blue one. The
   scrubber matches the timeline chart (solid amber → NOW → dashed blue),
   scrubs by pointer or arrow keys, and respects `prefers-reduced-motion`.

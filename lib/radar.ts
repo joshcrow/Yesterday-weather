@@ -305,6 +305,56 @@ export function recolor(img: HTMLImageElement, phase: RadarPhase): RecoloredImag
   return { canvas, hasEcho: visible > 30, bytes: w * h * 4 };
 }
 
+// ---------------------------------------------------------------------------
+// Basemap — Carto's dark, label-free OSM render: geography without chatter.
+// Drawn beneath the echoes and dimmed toward ink so the weather stays the star.
+// Attribution (© OpenStreetMap contributors © CARTO) rendered in the panel.
+// ---------------------------------------------------------------------------
+
+export function basemapTileUrl(z: number, x: number, y: number): string {
+  const n = 2 ** z;
+  const wx = ((x % n) + n) % n;
+  const sub = "abcd"[(wx + y) % 4];
+  return `https://${sub}.basemaps.cartocdn.com/dark_nolabels/${z}/${wx}/${y}.png`;
+}
+
+const BASEMAP_CAP = 160; // ~40MB decoded worst case
+const basemapTiles = new Map<string, HTMLImageElement>();
+const basemapPending = new Set<string>();
+const basemapFailed = new Set<string>();
+
+export function peekBasemap(url: string): HTMLImageElement | undefined {
+  const hit = basemapTiles.get(url);
+  if (hit) {
+    basemapTiles.delete(url); // refresh recency
+    basemapTiles.set(url, hit);
+  }
+  return hit;
+}
+
+/** Load-and-cache a basemap tile; resolves true when a NEW tile arrived. */
+export function ensureBasemap(url: string): Promise<boolean> {
+  if (basemapTiles.has(url) || basemapFailed.has(url) || basemapPending.has(url)) {
+    return Promise.resolve(false);
+  }
+  basemapPending.add(url);
+  return loadImage(url)
+    .then((img) => {
+      basemapPending.delete(url);
+      basemapTiles.set(url, img);
+      while (basemapTiles.size > BASEMAP_CAP) {
+        const oldest = basemapTiles.keys().next().value as string;
+        basemapTiles.delete(oldest);
+      }
+      return true;
+    })
+    .catch(() => {
+      basemapPending.delete(url);
+      basemapFailed.add(url);
+      return false;
+    });
+}
+
 /** CORS-enabled image load (needed for canvas readback), with one retry —
  * freshly generated frames occasionally 404 for a beat at the CDN edge. */
 export function loadImage(url: string): Promise<HTMLImageElement> {

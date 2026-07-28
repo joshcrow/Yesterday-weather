@@ -4,7 +4,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Place, Units } from "@/lib/weather";
 import type { RadarChapter, RadarFrame } from "@/lib/radar";
 import {
+  basemapTileUrl,
   clockLabel,
+  ensureBasemap,
   ensureRecolored,
   fetchRainviewerIndex,
   groundMppAt,
@@ -13,6 +15,7 @@ import {
   latelyIemFrames,
   localHourOf,
   localMinuteOf,
+  peekBasemap,
   peekRecolored,
   rvTileUrl,
   worldX,
@@ -284,7 +287,25 @@ export default function RadarPanel({ place, yesterdayDate, utcOffsetSeconds, uni
   }, [playing, frames]);
 
   // -------------------------------------------------------------------------
-  // Draw the current frame plus the instrument overlay (rings, marker).
+  // Basemap: fetch the dark OSM tiles for the current viewport; bump a tick
+  // as each arrives so the draw effect composites them in.
+  // -------------------------------------------------------------------------
+  const [baseTick, setBaseTick] = useState(0);
+  useEffect(() => {
+    if (!size) return;
+    let alive = true;
+    for (const t of tilesForViewport(place.latitude, place.longitude, effZoom, size)) {
+      ensureBasemap(basemapTileUrl(effZoom, t.x, t.y)).then((fresh) => {
+        if (fresh && alive) setBaseTick((n) => n + 1);
+      });
+    }
+    return () => {
+      alive = false;
+    };
+  }, [place.latitude, place.longitude, effZoom, size]);
+
+  // -------------------------------------------------------------------------
+  // Draw the basemap, the current frame, and the instrument overlay.
   // -------------------------------------------------------------------------
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -298,6 +319,8 @@ export default function RadarPanel({ place, yesterdayDate, utcOffsetSeconds, uni
     if (!ctx) return;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, size.w, size.h);
+
+    drawBasemap(ctx, place, effZoom, size);
 
     const list = frames;
     if (list && list.length > 0) {
@@ -321,7 +344,7 @@ export default function RadarPanel({ place, yesterdayDate, utcOffsetSeconds, uni
       }
     }
     drawOverlay(ctx, size, effZoom, place.latitude, units);
-  }, [frames, status, frameIndex, size, place, effZoom, units]);
+  }, [frames, status, frameIndex, size, place, effZoom, units, baseTick]);
 
   // -------------------------------------------------------------------------
   // Scrubber interactions
@@ -609,6 +632,24 @@ export default function RadarPanel({ place, yesterdayDate, utcOffsetSeconds, uni
       <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 border-t border-ink-line px-4 py-2 text-[10.5px] text-paper-faint sm:px-5">
         <span>
           {ringNote(effZoom, place.latitude, units, size)}
+          {" · Map © "}
+          <a
+            href="https://www.openstreetmap.org/copyright"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="underline decoration-white/25 underline-offset-2 transition-colors hover:text-paper-dim"
+          >
+            OpenStreetMap
+          </a>
+          {" © "}
+          <a
+            href="https://carto.com/attributions"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="underline decoration-white/25 underline-offset-2 transition-colors hover:text-paper-dim"
+          >
+            CARTO
+          </a>
         </span>
         <span>
           Radar:{" "}
@@ -642,6 +683,28 @@ export default function RadarPanel({ place, yesterdayDate, utcOffsetSeconds, uni
 // Drawing
 // ---------------------------------------------------------------------------
 
+/** Dark OSM tiles beneath everything, washed toward ink so echoes lead. */
+function drawBasemap(
+  ctx: CanvasRenderingContext2D,
+  place: Place,
+  zoomLevel: number,
+  size: ViewSize
+) {
+  ctx.imageSmoothingEnabled = true;
+  let drew = false;
+  for (const t of tilesForViewport(place.latitude, place.longitude, zoomLevel, size)) {
+    const img = peekBasemap(basemapTileUrl(zoomLevel, t.x, t.y));
+    if (img) {
+      ctx.drawImage(img, t.screenX, t.screenY, TILE, TILE);
+      drew = true;
+    }
+  }
+  if (drew) {
+    ctx.fillStyle = "rgba(10,14,21,0.45)";
+    ctx.fillRect(0, 0, size.w, size.h);
+  }
+}
+
 function drawRadarFrame(
   ctx: CanvasRenderingContext2D,
   frame: RadarFrame,
@@ -672,8 +735,8 @@ function drawRadarFrame(
   }
 }
 
-/** Range rings, distance labels, and the "you are here" mark — the base map.
- * No borrowed basemap tiles; the ledger stays ink. */
+/** Instrument overlay above the basemap: range rings, distance labels, and
+ * the "you are here" mark. */
 function drawOverlay(
   ctx: CanvasRenderingContext2D,
   size: ViewSize,
